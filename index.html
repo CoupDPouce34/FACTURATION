@@ -230,10 +230,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <span style="font-size:.85rem;font-weight:600;color:var(--v);">⚠️ Profs impayés —</span>
       <select id="pr-an-imp" onchange="rProfs()" style="max-width:88px;"></select>
     </div>
-    <div class="srow" style="grid-template-columns:1fr 1fr 1fr;">
-      <div class="sbox"><div class="v" id="pr-tot-fam">0 €</div><div class="l">Encaissé familles</div></div>
-      <div class="sbox o"><div class="v" id="pr-tot-prof">0 €</div><div class="l">Payé profs</div></div>
-      <div class="sbox g"><div class="v" id="pr-marge">0 €</div><div class="l">Marge annuelle</div></div>
+    <div id="profs-stats-row" class="srow" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="sbox" id="pr-fam-box"><div class="v" id="pr-tot-fam">0 €</div><div class="l">Encaissé familles</div></div>
+      <div class="sbox o" id="pr-prof-box"><div class="v" id="pr-tot-prof">0 €</div><div class="l">Payé profs</div></div>
+      <div class="sbox g" id="pr-marge-box" style="grid-column:1/-1;"><div class="v" id="pr-marge">0 €</div><div class="l">Marge annuelle</div></div>
     </div>
     <button class="btn bo bfull bsm" onclick="expProfsXLS()">📤 Exporter pour Google Sheets</button>
     <div id="profs-list"></div>
@@ -354,6 +354,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
     <div id="ms-lignes"></div>
     <button class="btn bo bsm" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un intervenant</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">
+      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-prix-fam" min="0" step="0.5" placeholder="35"></div>
+      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp" min="0" step="0.5" placeholder="28"></div>
+    </div>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
     <div class="mbtns">
       <button class="btn bv" onclick="valSaisie()">✅ Valider</button>
@@ -767,8 +771,9 @@ function openS(idx){
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
   renderLignes(lignes,f);
   const ppEl=document.getElementById('ms-pp');if(ppEl)ppEl.value=s.pp||CFG.prixProf||28;
-  // Set default prix famille from CFG
-  setTimeout(()=>{document.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.value||parseFloat(el.value)===35)el.value=CFG.prixFamille||35;});},50);
+  const pfEl=document.getElementById('ms-prix-fam');if(pfEl)pfEl.value=s.prixFam||CFG.prixFamille||35;
+  // Sync prix famille to lignes
+  setTimeout(()=>{document.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.dataset.modified)el.value=s.prixFam||CFG.prixFamille||35;});},50);
   document.getElementById('m-saisie').classList.add('open');
   setTimeout(()=>{const el=document.getElementById('ms-lignes').querySelector('input[type=number]');if(el)el.focus();},300);
 }
@@ -783,7 +788,7 @@ function renderLignes(lignes,f){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
-        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5"></div>
+        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5" data-modified="0" onchange="this.dataset.modified=1"></div>
       </div>
       <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
     </div>`).join('');
@@ -849,6 +854,7 @@ function valSaisie(){
   if(!s){s={fi:idx};S.s[key].push(s);}
   s.lignes=lignes;
   s.pp=parseFloat(document.getElementById('ms-pp')?.value)||CFG.prixProf||28;
+  s.prixFam=parseFloat(document.getElementById('ms-prix-fam')?.value)||CFG.prixFamille||35;
   // Keep legacy h/i/pr/d for compatibility
   if(lignes.length===1){s.h=lignes[0].h;s.i=lignes[0].i;s.pr=lignes[0].pr;s.d=lignes[0].d;}
   else if(lignes.length>1){s.h=lignes.reduce((a,l)=>a+l.h,0);s.i=lignes.map(l=>l.i).join(', ');}
@@ -1034,12 +1040,12 @@ function mkPDF(s,f,m,a,tot){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,242,52,0);
+    doc.addImage(pngData,'PNG',79,236,52,0);
   }catch(e){
     // Fallback texte si image échoue
   }
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,268,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,262,{align:'center'});
   return doc;
 }
 
@@ -1172,12 +1178,11 @@ function rProfsImpaye(){
     });
   }
   // Stats
-  document.getElementById('pr-tot-fam').textContent='';
-  document.getElementById('pr-tot-prof').textContent='';
+  const famBox=document.getElementById('pr-fam-box');if(famBox)famBox.style.display='none';
+  const profBox=document.getElementById('pr-prof-box');if(profBox)profBox.style.display='none';
+  const margeBox=document.getElementById('pr-marge-box');if(margeBox)margeBox.style.gridColumn='1/-1';
   document.getElementById('pr-marge').textContent=totalImpaye.toFixed(0)+' €';
-  // Rename marge label for impayé mode
-  const margeEl=document.querySelector('#pg-profs .srow .sbox:last-child .l');
-  if(margeEl)margeEl.textContent='Total impayé profs';
+  const margeEl=document.querySelector('#pr-marge-box .l');if(margeEl)margeEl.textContent='Total impayé profs';
   if(!html)c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Tous les profs sont payés !</p></div>';
   else c.innerHTML=html;
 }
@@ -1205,7 +1210,10 @@ function rProfs(){
   document.getElementById('pr-tot-fam').textContent=totFamAn.toFixed(0)+' €';
   document.getElementById('pr-tot-prof').textContent=totProfPaye.toFixed(0)+' €';
   document.getElementById('pr-marge').textContent=(totFamAn-totProfPaye).toFixed(0)+' €';
-  const margeL=document.querySelector('#pg-profs .srow .sbox:last-child .l');if(margeL)margeL.textContent='Marge annuelle';
+  const famBox2=document.getElementById('pr-fam-box');if(famBox2)famBox2.style.display='';
+  const profBox2=document.getElementById('pr-prof-box');if(profBox2)profBox2.style.display='';
+  const margeBox2=document.getElementById('pr-marge-box');if(margeBox2)margeBox2.style.gridColumn='';
+  const margeL=document.querySelector('#pr-marge-box .l');if(margeL)margeL.textContent='Marge annuelle';
 
   // Liste par intervenant pour le mois
   const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
@@ -1259,11 +1267,12 @@ function valPayProf(){
   if(!S.pyp)S.pyp={};
   if(!S.pyp_parts)S.pyp_parts={};
   const montant=parseFloat(document.getElementById('pyp-montant').value)||0;
+  const maxAllowed=parseFloat(document.getElementById('pyp-montant').max)||999999;
+  if(montant>maxAllowed+0.01){alert('Le montant saisi ('+montant+' €) dépasse le reste à payer ('+maxAllowed+' €).');return;}
+  if(montant<=0){alert('Veuillez saisir un montant valide.');return;}
   const paiement={st:'payé',d:document.getElementById('pyp-d').value,moyen:document.getElementById('pyp-m').value,montant:montant.toFixed(2)};
-  // Add to partial payments list
   if(!S.pyp_parts[curPayProfKey])S.pyp_parts[curPayProfKey]=[];
   S.pyp_parts[curPayProfKey].push({d:paiement.d,moyen:paiement.moyen,montant:paiement.montant});
-  // Mark as payé in pyp (for marge calc)
   S.pyp[curPayProfKey]=paiement;
   save();cm('m-pay-prof');rProfs();
 }
@@ -1374,7 +1383,9 @@ function openPy(num){
 function valPay(){
   if(!curPayN)return;
   const montantSaisi=parseFloat(document.getElementById('py-montant').value)||0;
-  if(montantSaisi<=0)return;
+  const maxPay=parseFloat(document.getElementById('py-montant').max)||999999;
+  if(montantSaisi>maxPay+0.01){alert('Le montant saisi ('+montantSaisi+' €) dépasse le reste à payer ('+maxPay+' €).');return;}
+  if(montantSaisi<=0){alert('Veuillez saisir un montant valide.');return;}
   const s=Object.values(S.s).flat().find(s=>s&&s.num===curPayN);
   const montantTotal=s?sMontant(s):0;
   if(!S.py_parts)S.py_parts={};
@@ -1498,7 +1509,11 @@ function calcAttestation(){
       const s=(S.s[key]||[]).find(s=>s.fi===fi);
       if(!s||!sTotal(s))continue;
       const py=S.py[s.num]||{};
-      if(py.st==='payé'||py.st==='partiel'){totalAnnuel+=sMontant(s);nbMoisPaye++;}
+      if(py.st==='payé'||py.st==='partiel'){
+        const parts=(S.py_parts||{})[s.num]||[];
+        const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):parseFloat(py.m2||0)||sMontant(s);
+        totalAnnuel+=paid;nbMoisPaye++;
+      }
     }
   });
   const cesu=parseFloat(document.getElementById('at-cesu').value)||0;
@@ -1636,8 +1651,8 @@ function sendMailAttestation(){
   const f=S.f[curAttestIdx];
   const annee=document.getElementById('at-annee').value;
   if(!f.e){alert('Pas d\'email renseigné pour cette famille.\nAllez dans l\'onglet 👨‍👩‍👧 Familles pour l\'ajouter.');return;}
-  const suj=`Attestation fiscale ${annee} – ${f.n} ${f.p} – ${CFG.nom}`;
-  const corps=`Bonjour,\n\nVeuillez trouver ci-joint votre attestation fiscale pour l'année ${annee}.\n\nCe document atteste du montant total des sommes versées à l'${CFG.nom} au titre des services à la personne (soutien scolaire). Il vous permettra de bénéficier d'un crédit ou d'une réduction d'impôt.\n\nBien cordialement,\n${CFG.repNom||''}\n${CFG.repTitre||'Présidente'} – ${CFG.nom}`;
+  const suj=`Attestation Fiscale ${annee}`;
+  const corps=`Bonjour,\n\nVeuillez trouver ci-joint l'attestation fiscale ${annee}.\n\nBonne réception.\n\nCordialement,`;
   window.open(`mailto:${f.e}?subject=${encodeURIComponent(suj)}&body=${encodeURIComponent(corps)}`);
 }
 

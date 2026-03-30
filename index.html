@@ -273,7 +273,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <div class="ctitle">👤 Codes intervenants</div>
       <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Ces codes apparaissaient dans les anciens numéros de facture. Ils sont conservés pour référence.<br>Touchez une ligne pour modifier.</div>
       <div id="codes-list"></div>
-      <button class="btn bo bfull bsm" onclick="addCode()" style="margin-top:8px;">➕ Ajouter un intervenant</button>
+      <button class="btn bo bfull bsm" onclick="addCode()" style="margin-top:8px;">➕ Ajouter un prof</button>
     </div>
     <div class="card">
       <div class="ctitle">💾 Sauvegarde</div>
@@ -353,11 +353,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="mhandle"></div>
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
     <div id="ms-lignes"></div>
-    <button class="btn bo bsm" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un intervenant</button>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px;">
-      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-prix-fam" min="0" step="0.5" placeholder="35"></div>
-      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp" min="0" step="0.5" placeholder="28"></div>
-    </div>
+    <button class="btn bo bsm" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un prof</button>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
     <div class="mbtns">
       <button class="btn bv" onclick="valSaisie()">✅ Valider</button>
@@ -770,10 +766,7 @@ function openS(idx){
   // Rebuild lignes from saved data or default
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
   renderLignes(lignes,f);
-  const ppEl=document.getElementById('ms-pp');if(ppEl)ppEl.value=s.pp||CFG.prixProf||28;
-  const pfEl=document.getElementById('ms-prix-fam');if(pfEl)pfEl.value=s.prixFam||CFG.prixFamille||35;
-  // Sync prix famille to lignes
-  setTimeout(()=>{document.querySelectorAll('[id^="ms-p-"]').forEach(el=>{if(!el.dataset.modified)el.value=s.prixFam||CFG.prixFamille||35;});},50);
+  // prix par ligne dans renderLignes
   document.getElementById('m-saisie').classList.add('open');
   setTimeout(()=>{const el=document.getElementById('ms-lignes').querySelector('input[type=number]');if(el)el.focus();},300);
 }
@@ -787,9 +780,10 @@ function renderLignes(lignes,f){
         <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv(l.i||'')}</select>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
-        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5" data-modified="0" onchange="this.dataset.modified=1"></div>
+        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5"></div>
+        <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${i}" value="${l.pp||CFG.prixProf||28}" min="0" step="0.5"></div>
       </div>
+      <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
       <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
     </div>`).join('');
 }
@@ -813,10 +807,11 @@ function ajouterLigne(){
     <div class="field"><label class="sl">Prof</label>
       <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
+        <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
+      </div>
       <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
-      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
-    </div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
   </div>`;
   c.appendChild(div.firstElementChild);
@@ -839,7 +834,8 @@ function collectLignes(){
     const h=document.getElementById(`ms-h-${i}`);
     const p=document.getElementById(`ms-p-${i}`);
     const d=document.getElementById(`ms-d-${i}`);
-    if(sel)result.push({i:sel.value,h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||35,d:d?.value||''});
+    const ppL=document.getElementById(`ms-pp-${i}`);
+    if(sel)result.push({i:sel.value,h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||(CFG.prixFamille||35),pp:parseFloat(ppL?.value)||(CFG.prixProf||28),d:d?.value||''});
   });
   return result;
 }
@@ -853,8 +849,9 @@ function valSaisie(){
   let s=S.s[key].find(s=>s.fi===idx);
   if(!s){s={fi:idx};S.s[key].push(s);}
   s.lignes=lignes;
-  s.pp=parseFloat(document.getElementById('ms-pp')?.value)||CFG.prixProf||28;
-  s.prixFam=parseFloat(document.getElementById('ms-prix-fam')?.value)||CFG.prixFamille||35;
+  // pp per ligne already saved in lignes[].pp
+  s.pp=lignes.length>0?(lignes[0].pp||CFG.prixProf||28):CFG.prixProf||28;
+  s.prixFam=lignes.length>0?(lignes[0].pr||CFG.prixFamille||35):CFG.prixFamille||35;
   // Keep legacy h/i/pr/d for compatibility
   if(lignes.length===1){s.h=lignes[0].h;s.i=lignes[0].i;s.pr=lignes[0].pr;s.d=lignes[0].d;}
   else if(lignes.length>1){s.h=lignes.reduce((a,l)=>a+l.h,0);s.i=lignes.map(l=>l.i).join(', ');}
@@ -1040,12 +1037,12 @@ function mkPDF(s,f,m,a,tot){
     ctx.clearRect(0,0,canvas.width,canvas.height);
     ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,236,52,0);
+    doc.addImage(pngData,'PNG',79,228,52,0);
   }catch(e){
     // Fallback texte si image échoue
   }
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,262,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,254,{align:'center'});
   return doc;
 }
 
@@ -1166,12 +1163,15 @@ function rProfsImpaye(){
       const totalEur=(totalH*prixProf).toFixed(2);
       const profKey=nom+'_'+m+'_'+a;
       const pyp=(S.pyp||{})[profKey]||{};
-      if(pyp.st!=='payé'){
-        totalImpaye+=parseFloat(totalEur);
+      const parts=(S.pyp_parts||{})[profKey]||[];
+      const totalPaidProf=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+      const resteProf=Math.max(0,parseFloat(totalEur)-totalPaidProf);
+      if(resteProf>0.01){
+        totalImpaye+=resteProf;
         html+=`<div class="suivi-item att" style="margin-bottom:8px;">
           <div class="stop"><div><div class="snom">👨‍🏫 ${nom} — ${MN[m]}</div>
           <div class="sdet">${totalH}h × ${prixProf} € = ${totalEur} €</div></div>
-          <div class="smnt">${totalEur} €</div></div>
+          <div class="smnt">${resteProf.toFixed(2)} €</div></div>
           <div class="sact">${buildProfPayBtns(profKey,nom,totalEur,totalH,prixProf)}</div>
         </div>`;
       }
@@ -1203,10 +1203,17 @@ function rProfs(){
       }
     });
   }
-  // Total payé aux profs (annuel)
-  Object.entries(S.pyp||{}).forEach(([k,v])=>{
-    if(k.endsWith('_'+a)&&v&&v.st==='payé') totProfPaye+=parseFloat(v.montant)||0;
-  });
+  // Total payé aux profs (annuel) - use pyp_parts for accuracy
+  for(let mm=1;mm<=12;mm++){
+    const ss2=(S.s[mm+'_'+a]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+    const byP2={};
+    ss2.forEach(s=>{const lg=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h}];lg.filter(l=>l.h>0).forEach(l=>{const n=l.i||'?';if(!byP2[n])byP2[n]=[];byP2[n].push({s,l});});});
+    Object.keys(byP2).forEach(nom=>{
+      const pk=nom+'_'+mm+'_'+a;
+      const parts=(S.pyp_parts||{})[pk]||[];
+      totProfPaye+=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+    });
+  }
   document.getElementById('pr-tot-fam').textContent=totFamAn.toFixed(0)+' €';
   document.getElementById('pr-tot-prof').textContent=totProfPaye.toFixed(0)+' €';
   document.getElementById('pr-marge').textContent=(totFamAn-totProfPaye).toFixed(0)+' €';

@@ -352,6 +352,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="msheet">
     <div class="mhandle"></div>
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
+    <div class="field" id="ms-eleve-field" style="display:none;">
+      <label class="sl">Élève</label>
+      <select id="ms-eleve" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"></select>
+    </div>
     <div id="ms-lignes"></div>
     <button class="btn bo bsm" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un prof</button>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
@@ -421,6 +425,11 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <select id="mf-iv" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;"></select>
     </div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="mf-pr" placeholder="ex: tarif spécial, frère/sœur..."></div>
+    <div class="field">
+      <label class="sl">Élèves</label>
+      <div id="mf-eleves-list" style="margin-bottom:6px;"></div>
+      <button type="button" class="btn bo bxs bsm" onclick="ajouterEleve()" style="width:100%;">➕ Ajouter un élève</button>
+    </div>
     <input type="hidden" id="mf-idx">
     <div class="mbtns">
       <button class="btn bv" onclick="valFam()">💾 Sauvegarder</button>
@@ -610,7 +619,7 @@ const FI=[
 ];
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{}};
-let curIdx=null,curPayN=null,curAp=null;
+let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
 
 function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
 function ga(){const el=document.getElementById('s-an');return el?parseInt(el.value):new Date().getFullYear();}
@@ -762,6 +771,13 @@ function openS(idx){
   const f=S.f[idx],s=S.s[key]?S.s[key].find(s=>s.fi===idx)||{}:{};
   curIdx=idx;
   document.getElementById('m-saisie-nom').textContent=f.n+(f.p?' – '+f.p:'');
+  // Élève selector
+  const eleveFld=document.getElementById('ms-eleve-field');
+  const eleveEl=document.getElementById('ms-eleve');
+  if(f.eleves&&f.eleves.length){
+    eleveFld.style.display='block';
+    eleveEl.innerHTML='<option value="">Tous les élèves</option>'+f.eleves.map(e=>`<option value="${e}" ${s.eleve===e?'selected':''}>${e}</option>`).join('');
+  } else {eleveFld.style.display='none';}
   document.getElementById('ms-num').value=s.num||'';
   // Rebuild lignes from saved data or default
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
@@ -843,12 +859,14 @@ function collectLignes(){
 function valSaisie(){
   const key=gk(),m=gm(),a=ga();
   const numManuel=document.getElementById('ms-num').value.trim();
+  const eleveSelEl=document.getElementById('ms-eleve');if(eleveSelEl)curSaisieEleve=eleveSelEl.value||'';
   const lignes=collectLignes().filter(l=>l.h>0);
   const idx=curIdx;
   if(!S.s[key])S.s[key]=[];
   let s=S.s[key].find(s=>s.fi===idx);
   if(!s){s={fi:idx};S.s[key].push(s);}
   s.lignes=lignes;
+  s.eleve=curSaisieEleve;
   // pp per ligne already saved in lignes[].pp
   s.pp=lignes.length>0?(lignes[0].pp||CFG.prixProf||28):CFG.prixProf||28;
   s.prixFam=lignes.length>0?(lignes[0].pr||CFG.prixFamille||35):CFG.prixFamille||35;
@@ -1027,22 +1045,17 @@ function mkPDF(s,f,m,a,tot){
   y+=7;
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
-  // LOGO SAP + texte — convertir webp en PNG via canvas pour éviter fond noir
+  // LOGO SAP en bas de page (position absolue, pas de superposition)
   try{
-    const img=new Image();
-    img.src=SAP_LOGO;
+    const img=new Image();img.src=SAP_LOGO;
     const canvas=document.createElement('canvas');
     canvas.width=img.width||200;canvas.height=img.height||150;
-    const ctx=canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(img,0,0);
+    const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,228,52,0);
-  }catch(e){
-    // Fallback texte si image échoue
-  }
+    doc.addImage(pngData,'PNG',79,270,52,0);
+  }catch(e){}
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,254,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,293,{align:'center'});
   return doc;
 }
 
@@ -1311,7 +1324,13 @@ function rSuivi(){
   const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
     .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   let tT=0,tP=0,nP=0;
-  ss.forEach(s=>{const t=sMontant(s);tT+=t;const py=S.py[s.num];if(py&&py.st==='payé'){tP+=t;nP++;}});
+  ss.forEach(s=>{
+    const t=sMontant(s);tT+=t;
+    const py=S.py[s.num];
+    const parts=(S.py_parts||{})[s.num]||[];
+    const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):(py&&py.st==='payé'?t:0);
+    if(paid>0){tP+=paid;if(paid>=t-0.01)nP++;}
+  });
   document.getElementById('suivi-stats').innerHTML=`
     <div class="sbox"><div class="v">${tT.toFixed(0)} €</div><div class="l">Total facturé</div></div>
     <div class="sbox g"><div class="v">${tP.toFixed(0)} €</div><div class="l">Encaissé (${nP}/${ss.length})</div></div>
@@ -1371,9 +1390,9 @@ function mkSuiviItem(s,f,tot,py,paye,m,a){
   const totalMontant=parseFloat(tot);
   const reste=Math.max(0,totalMontant-totalPaid).toFixed(2);
   let payBtns='';
-  parts.forEach((p,i)=>{payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${s.num}',${i})" style="background:none;border:none;color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;">↩️(${p.montant}€)</button></div>`;});
+  parts.forEach((p,i)=>{payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${s.num}',${i})" style="background:#fff3f3;border:1px solid var(--danger);color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;border-radius:6px;padding:2px 6px;">↩️ Annuler (${p.montant}€)</button></div>`;});
   if(!paye&&parseFloat(reste)>0.01)payBtns+=`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 ${parts.length?'Solde ('+reste+' €)':'Saisir le paiement'}</button>`;
-  return`<div class="suivi-item ${paye?'paye':partiel?'att':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div></div><div class="smnt">${tot} €</div></div><div class="sact">${payBtns}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button>${f.e?`<button class="btn bo bxs" onclick="mailDirect(${s.fi},${m},${a})">📧</button>`:''}</div></div>`;}
+  return`<div class="suivi-item ${paye?'paye':partiel?'att':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div></div><div class="smnt">${tot} €</div></div><div class="sact">${payBtns}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button></div></div>`;}
 
 function openPy(num){
   curPayN=num;
@@ -1431,13 +1450,39 @@ function rFam(){
   const filtered=fams.filter(({f})=>!q||f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q));
   c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
-    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
+    const elevesStr=(f.eleves||[]).join(", ");
+    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
   }).join('');
+}
+
+function getEleves(){
+  const list=document.getElementById('mf-eleves-list');
+  if(!list)return[];
+  return Array.from(list.querySelectorAll('input')).map(i=>i.value.trim()).filter(Boolean);
+}
+function renderEleves(eleves){
+  const list=document.getElementById('mf-eleves-list');
+  if(!list)return;
+  list.innerHTML=(eleves||[]).map((e,i)=>`
+    <div style="display:flex;gap:6px;margin-bottom:5px;">
+      <input type="text" value="${e}" placeholder="Prénom élève ${i+1}" style="flex:1;padding:8px 10px;border:1.5px solid var(--bord);border-radius:9px;font-size:.9rem;">
+      <button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--danger);font-size:1.1rem;cursor:pointer;">✕</button>
+    </div>`).join('');
+}
+function ajouterEleve(){
+  const list=document.getElementById('mf-eleves-list');
+  if(!list)return;
+  const n=list.querySelectorAll('input').length;
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;gap:6px;margin-bottom:5px;';
+  div.innerHTML=`<input type="text" placeholder="Prénom élève ${n+1}" style="flex:1;padding:8px 10px;border:1.5px solid var(--bord);border-radius:9px;font-size:.9rem;"><button type="button" onclick="this.parentElement.remove()" style="background:none;border:none;color:var(--danger);font-size:1.1rem;cursor:pointer;">✕</button>`;
+  list.appendChild(div);
 }
 
 function addFam(){
   document.getElementById('m-fam-titre').textContent='Ajouter une famille';
   ['mf-n','mf-p','mf-rue','mf-cp','mf-vil','mf-e','mf-tel'].forEach(id=>document.getElementById(id).value='');
+  renderEleves([]);
   // Populate intervenant select
   const sel=document.getElementById('mf-iv');
   sel.innerHTML=`<option value="">-- Choisir --</option>`+Object.keys(CODES).map(n=>`<option value="${n}">${n}</option>`).join('');
@@ -1460,6 +1505,7 @@ function editFam(idx){
   const sel=document.getElementById('mf-iv');
   sel.innerHTML=`<option value="">-- Choisir --</option>`+Object.keys(CODES).map(n=>`<option value="${n}" ${n===(f.i||'')?'selected':''}>${n}</option>`).join('');
   document.getElementById('mf-pr').value=f.com||'';
+  renderEleves(f.eleves||[]);
   document.getElementById('mf-idx').value=idx;
   document.getElementById('mf-del').style.display='block';
   document.getElementById('m-fam').classList.add('open');
@@ -1475,7 +1521,8 @@ function valFam(){
     e:document.getElementById('mf-e').value.trim(),
     tel:document.getElementById('mf-tel').value.trim(),
     i:document.getElementById('mf-iv').value.trim(),
-    com:document.getElementById('mf-pr').value.trim()
+    com:document.getElementById('mf-pr').value.trim(),
+    eleves:getEleves()
   };
   const idx=document.getElementById('mf-idx').value;
   if(idx!=='')S.f[parseInt(idx)]=f;else S.f.push(f);
@@ -1590,21 +1637,23 @@ function genAttestPDF(){
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   let y=20;
 
-  // ── EN-TÊTE gauche
-  doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(30);
-  doc.text(CFG.nom,18,y);
-  doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(60);
-  const sapCourt=CFG.sap.replace('par DIRECCTE','à la DIRECCTE').replace('615 Bd Antigone à Montpellier','');
-  doc.text(sapCourt.trim(),18,y+6,{maxWidth:90});
-  const ligAdr=CFG.adr.split(',');
-  ligAdr.forEach((l,i)=>doc.text(l.trim(),18,y+12+(i*5)));
-  doc.text('SIREN '+CFG.siren,18,y+12+(ligAdr.length*5));
+  // ── EN-TÊTE identique aux factures (bleu) ──
+  doc.setFontSize(9);doc.setTextColor(80);doc.setFont('helvetica','bold');
+  doc.text(CFG.nom,18,y);doc.setFont('helvetica','normal');
+  doc.text(CFG.adr,18,y+5);
+  if(CFG.adr2)doc.text(CFG.adr2,18,y+10);
+  const hOff=CFG.adr2?5:0;
+  doc.text(CFG.email,18,y+10+hOff);
+  doc.text('SIREN '+CFG.siren,18,y+15+hOff);
+  doc.setFontSize(7.5);doc.text(CFG.sap,18,y+20+hOff,{maxWidth:88});
+  y+=32+hOff;
 
-  // ── TITRE CENTRÉ
-  y+=48;
-  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(30);
+  // ── TITRE BLEU centré ──
+  doc.setFontSize(13);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
   doc.text('ATTESTATION FISCALE ANNUELLE',105,y,{align:'center'});
-  y+=16;
+  doc.setDrawColor(30,64,175);doc.setLineWidth(0.6);doc.line(18,y+3,193,y+3);
+  doc.setFont('helvetica','normal');
+  y+=14;
 
   // ── CORPS DU TEXTE
   doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30);
@@ -1612,13 +1661,13 @@ function genAttestPDF(){
   doc.text(intro,18,y,{maxWidth:175});
   y+=12;
 
-  // Nom famille centré
+  // Nom + adresse famille centrés
   doc.setFont('helvetica','bold');
-  doc.text(f.n+' '+f.p,105,y,{align:'center'});y+=6;
+  doc.text(f.n+(f.p?' '+f.p:''),105,y,{align:'center'});y+=6;
   doc.setFont('helvetica','normal');
-  const adrligs=(f.a||'').split(/[\n,]/).map(l=>l.trim()).filter(Boolean);
+  const adrligs=fmtAdr(f);
   adrligs.forEach(l=>{doc.text(l,105,y,{align:'center'});y+=5;});
-  y+=8;
+  y+=6;
 
   // Mention service + soutien scolaire
   doc.text('a bénéficié de services à la personne : ',18,y);

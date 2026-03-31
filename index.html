@@ -354,10 +354,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
 
     <div id="ms-lignes"></div>
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button class="btn bo bsm" onclick="ajouterLigne()" style="flex:1;">➕ Ajouter un prof</button>
-      <button class="btn bo bsm" id="btn-ajouter-eleve" onclick="ajouterEleveSaisie()" style="flex:1;display:none;">➕ Ajouter un élève</button>
-    </div>
+    <button class="btn bo bsm" id="btn-ajouter-eleve" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un élève / prof</button>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
     <div class="mbtns">
       <button class="btn bv" onclick="valSaisie()">✅ Valider</button>
@@ -772,101 +769,58 @@ function openS(idx){
   curIdx=idx;
   document.getElementById('m-saisie-nom').textContent=f.n+(f.p?' – '+f.p:'');
   // Bouton "Ajouter un élève" visible si famille a des élèves
-  const btnAjEleve=document.getElementById('btn-ajouter-eleve');
-  if(btnAjEleve)btnAjEleve.style.display=(f.eleves&&f.eleves.length)?'block':'none';
+
   document.getElementById('ms-num').value=s.num||'';
   // Rebuild lignes from saved data or default
-  const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
+  const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i||f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||CFG.prixFamille||35,pp:s.pp||CFG.prixProf||28,eleve:s.eleve||''}];
   renderLignes(lignes,f);
   // prix par ligne dans renderLignes
   document.getElementById('m-saisie').classList.add('open');
   setTimeout(()=>{const el=document.getElementById('ms-lignes').querySelector('input[type=number]');if(el)el.focus();},300);
 }
 
-function renderLignes(lignes,f){
-  const c=document.getElementById('ms-lignes');
-  c.innerHTML=lignes.map((l,i)=>`
-    <div data-ligne="${i}" style="background:var(--bg);border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;position:relative;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">👨‍🏫 Prof ${i+1}</div>
-        ${lignes.length>1?`<button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);padding:0;">✕</button>`:''}
-      </div>
-      <div class="field"><label class="sl">Prof</label>
-        <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv(l.i||'')}</select>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5"></div>
-        <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${i}" value="${l.pp||CFG.prixProf||28}" min="0" step="0.5"></div>
-      </div>
-      <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
-      <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
-    </div>`).join('');
-}
-
-function ajouterEleveSaisie(){
-  const f=S.f[curIdx]||{};
-  if(!f.eleves||!f.eleves.length)return;
-  const c=document.getElementById('ms-lignes');
-  const n=c.querySelectorAll('[data-ligne]').length;
-  // Add ✕ to first bloc if needed
-  const first=c.querySelector('[data-ligne="0"]');
-  if(first&&!first.querySelector('button.rm-ligne')){
-    const btn=document.createElement('button');
-    btn.textContent='✕';btn.className='rm-ligne';
-    btn.setAttribute('onclick',"this.closest('[data-ligne]').remove()");
-    btn.style.cssText='position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);';
-    first.style.position='relative';first.appendChild(btn);
-  }
-  const eleveOpts=f.eleves.map(e=>`<option value="${e}">${e}</option>`).join('');
-  const div=document.createElement('div');
-  div.innerHTML=`<div data-ligne="${n}" data-type="eleve" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
-    <button class="rm-ligne" onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>
-    <div style="font-size:.72rem;font-weight:700;color:var(--v);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🎓 Élève</div>
-    <div class="field"><label class="sl">Élève</label>
-      <select id="ms-eleve-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select>
+function mkBlocHTML(l, i, total, f){
+  const hasEleves=f&&f.eleves&&f.eleves.length>0;
+  const eleveOpts=hasEleves?f.eleves.map(e=>`<option value="${e}" ${l.eleve===e?'selected':''}>${e}</option>`).join(''):'';
+  const showX=total>1;
+  return `<div data-ligne="${i}" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">🎓 Élève ${total>1?i+1:''}</div>
+      ${showX?`<button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--danger);padding:0;line-height:1;">✕</button>`:''}
     </div>
+    ${hasEleves?`<div class="field"><label class="sl">Élève</label>
+      <select id="ms-eleve-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select>
+    </div>`:''}
     <div class="field"><label class="sl">Prof</label>
-      <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
+      <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv(l.i||'')}</select>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
-      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
+      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${i}" value="${l.pr||CFG.prixFamille||35}" min="0" step="0.5"></div>
+      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${i}" value="${l.pp||CFG.prixProf||28}" min="0" step="0.5"></div>
     </div>
-    <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
-    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
+    <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
+    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
   </div>`;
-  c.appendChild(div.firstElementChild);
 }
+
+function renderLignes(lignes,f){
+  const c=document.getElementById('ms-lignes');
+  c.innerHTML=lignes.map((l,i)=>mkBlocHTML(l,i,lignes.length,f)).join('');
+}
+
+function ajouterEleveSaisie(){ajouterLigne();}
 
 function ajouterLigne(){
   const f=S.f[curIdx]||{};
   const c=document.getElementById('ms-lignes');
   const n=c.querySelectorAll('[data-ligne]').length;
-  // Add ✕ to first bloc if it doesn't have one yet
-  const first=c.querySelector('[data-ligne="0"]');
-  if(first&&!first.querySelector('button')){
-    const btn=document.createElement('button');
-    btn.textContent='✕';
-    btn.setAttribute('onclick',"this.closest('[data-ligne]').remove()");
-    btn.style.cssText='position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);';
-    first.appendChild(btn);
+  // Ajouter ✕ au premier bloc si pas encore
+  if(n>0){
+    const first=c.querySelector('[data-ligne="0"]');
+    if(first){const hdr=first.querySelector('div[style*="justify-content"]');if(hdr&&!hdr.querySelector('button')){const x=document.createElement('button');x.textContent='✕';x.setAttribute('onclick',"this.closest('[data-ligne]').remove()");x.style.cssText='background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--danger);padding:0;line-height:1;';hdr.appendChild(x);}}
   }
   const div=document.createElement('div');
-  div.innerHTML=`<div data-ligne="${n}" style="background:var(--bg);border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;position:relative;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">👨‍🏫 Prof</div>
-      <button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);padding:0;">✕</button>
-    </div>
-    <div class="field"><label class="sl">Prof</label>
-      <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
-      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
-    </div>
-    <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
-    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
-  </div>`;
+  div.innerHTML=mkBlocHTML({},n,n+1,f);
   c.appendChild(div.firstElementChild);
 }
 

@@ -352,10 +352,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="msheet">
     <div class="mhandle"></div>
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
-    <div class="field" id="ms-eleve-field" style="display:none;">
-      <label class="sl">Élève</label>
-      <select id="ms-eleve" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"></select>
-    </div>
+
     <div id="ms-lignes"></div>
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button class="btn bo bsm" onclick="ajouterLigne()" style="flex:1;">➕ Ajouter un prof</button>
@@ -774,18 +771,9 @@ function openS(idx){
   const f=S.f[idx],s=S.s[key]?S.s[key].find(s=>s.fi===idx)||{}:{};
   curIdx=idx;
   document.getElementById('m-saisie-nom').textContent=f.n+(f.p?' – '+f.p:'');
-  // Champ élève en haut + bouton "Ajouter un élève"
-  const eleveFld=document.getElementById('ms-eleve-field');
-  const eleveEl=document.getElementById('ms-eleve');
+  // Bouton "Ajouter un élève" visible si famille a des élèves
   const btnAjEleve=document.getElementById('btn-ajouter-eleve');
-  if(f.eleves&&f.eleves.length){
-    if(eleveFld)eleveFld.style.display='block';
-    if(eleveEl)eleveEl.innerHTML='<option value="">-- Choisir un élève --</option>'+f.eleves.map(e=>`<option value="${e}" ${s.eleve===e?'selected':''}>${e}</option>`).join('');
-    if(btnAjEleve)btnAjEleve.style.display='block';
-  } else {
-    if(eleveFld)eleveFld.style.display='none';
-    if(btnAjEleve)btnAjEleve.style.display='none';
-  }
+  if(btnAjEleve)btnAjEleve.style.display=(f.eleves&&f.eleves.length)?'block':'none';
   document.getElementById('ms-num').value=s.num||'';
   // Rebuild lignes from saved data or default
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
@@ -909,7 +897,7 @@ function collectLignes(){
 function valSaisie(){
   const key=gk(),m=gm(),a=ga();
   const numManuel=document.getElementById('ms-num').value.trim();
-  const eleveSelEl=document.getElementById('ms-eleve');const selectedEleve=eleveSelEl?eleveSelEl.value||'':'';
+  const selectedEleve='';
   const lignes=collectLignes().filter(l=>l.h>0);
   const idx=curIdx;
   if(!S.s[key])S.s[key]=[];
@@ -1368,7 +1356,7 @@ function setVueSuivi(mode){
   rSuivi();
 }
 
-function rSuivi(){
+function rSuivi(){window._annPyRefs=[];
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
   const key=m+'_'+a;
@@ -1449,7 +1437,13 @@ function mkSuiviItem(s,f,tot,py,paye,m,a){
   const totalMontant=parseFloat(tot);
   const reste=Math.max(0,totalMontant-totalPaid).toFixed(2);
   let payBtns='';
-  parts.forEach((p,i)=>{const numEsc=s.num.replace(/'/g,"\\'")||'';payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${numEsc}',${i})" style="background:#fff3f3;border:1px solid var(--danger);color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;border-radius:6px;padding:2px 6px;">↩️ Annuler (${p.montant}€)</button></div>`;});
+  parts.forEach((p,i)=>{
+    // Stocker num dans tableau global pour éviter pb guillemets avec /
+    const refIdx=window._annPyRefs=window._annPyRefs||[];
+    const ri=refIdx.findIndex(r=>r.num===s.num&&r.idx===i);
+    const storeIdx=ri>=0?ri:refIdx.push({num:s.num,idx:i})-1;
+    payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPyRef(${storeIdx})" style="background:#fff3f3;border:1.5px solid var(--danger);color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;border-radius:6px;padding:3px 8px;">↩️ Annuler (${p.montant}€)</button></div>`;
+  });
   if(!paye&&parseFloat(reste)>0.01)payBtns+=`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 ${parts.length?'Solde ('+reste+' €)':'Saisir le paiement'}</button>`;
   return`<div class="suivi-item ${paye?'paye':partiel?'att':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div></div><div class="smnt">${tot} €</div></div><div class="sact">${payBtns}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button></div></div>`;}
 
@@ -1481,6 +1475,12 @@ function valPay(){
   S.py[curPayN]={st:estSolde?'payé':'partiel',d:document.getElementById('py-d').value,m:document.getElementById('py-m').value,m2:totalPaid.toFixed(2)};
   save();cm('m-pay');rSuivi();rFact();
 }
+function annPyRef(storeIdx){
+  const ref=(window._annPyRefs||[])[storeIdx];
+  if(!ref)return;
+  annPy(ref.num,ref.idx);
+}
+
 function annPy(num,idx){
   if(!confirm('Annuler ce paiement ?'))return;
   if(idx!==undefined&&idx!==null&&idx>=0&&S.py_parts&&S.py_parts[num]){

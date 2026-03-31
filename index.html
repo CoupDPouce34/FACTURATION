@@ -798,8 +798,11 @@ function openS(idx){
 function renderLignes(lignes,f){
   const c=document.getElementById('ms-lignes');
   c.innerHTML=lignes.map((l,i)=>`
-    <div data-ligne="${i}" style="background:var(--bg);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
-      ${lignes.length>1?`<button onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>`:''}
+    <div data-ligne="${i}" style="background:var(--bg);border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">👨‍🏫 Prof ${i+1}</div>
+        ${lignes.length>1?`<button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);padding:0;">✕</button>`:''}
+      </div>
       <div class="field"><label class="sl">Prof</label>
         <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv(l.i||'')}</select>
       </div>
@@ -861,16 +864,19 @@ function ajouterLigne(){
     first.appendChild(btn);
   }
   const div=document.createElement('div');
-  div.innerHTML=`<div data-ligne="${n}" style="background:var(--bg);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
-    <button onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>
+  div.innerHTML=`<div data-ligne="${n}" style="background:var(--bg);border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">👨‍🏫 Prof</div>
+      <button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);padding:0;">✕</button>
+    </div>
     <div class="field"><label class="sl">Prof</label>
       <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
     </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
-        <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
-      </div>
-      <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
+      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
+    </div>
+    <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
   </div>`;
   c.appendChild(div.firstElementChild);
@@ -1089,7 +1095,7 @@ function mkPDF(s,f,m,a,tot){
   y+=7;
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
-  // LOGO SAP juste après IBAN
+  // LOGO SAP juste après IBAN (hauteur fixe 20mm, texte 24mm plus bas)
   const yLogo=y+12;
   try{
     const img=new Image();img.src=SAP_LOGO;
@@ -1097,11 +1103,10 @@ function mkPDF(s,f,m,a,tot){
     canvas.width=img.width||200;canvas.height=img.height||150;
     const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,yLogo,52,0);
+    doc.addImage(pngData,'PNG',79,yLogo,52,20);
   }catch(e){}
-  // Mention sur avant-dernière ligne (logo ~20mm de haut + marge)
   doc.setFontSize(8.5);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogo+28,{align:'center'});
+  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogo+24,{align:'center'});
   return doc;
 }
 
@@ -1402,7 +1407,10 @@ function rSuiviImpaye(){
       .forEach(s=>{
       const py=S.py[s.num]||{};
       const parts2=(S.py_parts||{})[s.num]||[];
-      const paid2=parts2.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+      // Calculer le total réellement payé
+      const paid2=parts2.length>0
+        ? parts2.reduce((a,p)=>a+parseFloat(p.montant||0),0)
+        : (py.st==='payé'?sMontant(s):(py.st==='partiel'?parseFloat(py.m2||0):0));
       const mt2=sMontant(s);
       if(paid2<mt2-0.01) impayees.push({s,m,a,reste:mt2-paid2});
     });
@@ -1441,7 +1449,7 @@ function mkSuiviItem(s,f,tot,py,paye,m,a){
   const totalMontant=parseFloat(tot);
   const reste=Math.max(0,totalMontant-totalPaid).toFixed(2);
   let payBtns='';
-  parts.forEach((p,i)=>{payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${s.num}',${i})" style="background:#fff3f3;border:1px solid var(--danger);color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;border-radius:6px;padding:2px 6px;">↩️ Annuler (${p.montant}€)</button></div>`;});
+  parts.forEach((p,i)=>{const numEsc=s.num.replace(/'/g,"\\'")||'';payBtns+=`<div style="color:var(--vc);font-size:.76rem;margin-bottom:3px;">✅ ${p.d?new Date(p.d).toLocaleDateString('fr-FR'):''} · ${p.m||''} · ${p.montant} €<button onclick="annPy('${numEsc}',${i})" style="background:#fff3f3;border:1px solid var(--danger);color:var(--danger);font-size:.72rem;cursor:pointer;font-weight:700;margin-left:4px;border-radius:6px;padding:2px 6px;">↩️ Annuler (${p.montant}€)</button></div>`;});
   if(!paye&&parseFloat(reste)>0.01)payBtns+=`<button class="btn bc bsm" onclick="openPy('${s.num}')">💳 ${parts.length?'Solde ('+reste+' €)':'Saisir le paiement'}</button>`;
   return`<div class="suivi-item ${paye?'paye':partiel?'att':'att'}"><div class="stop"><div><div class="snom">${f.n} ${f.p}</div><div class="sdet">${s.num||'—'} · ${interv} · ${htot}h${vueSuivi==='impaye'?' · '+MN[m]:''}</div></div><div class="smnt">${tot} €</div></div><div class="sact">${payBtns}<button class="btn bo bxs" onclick="voirF(${s.fi},${m},${a});showPage('apercu');">🧾 Voir</button></div></div>`;}
 
@@ -1475,7 +1483,7 @@ function valPay(){
 }
 function annPy(num,idx){
   if(!confirm('Annuler ce paiement ?'))return;
-  if(idx!==undefined&&S.py_parts&&S.py_parts[num]){
+  if(idx!==undefined&&idx!==null&&idx>=0&&S.py_parts&&S.py_parts[num]){
     S.py_parts[num].splice(idx,1);
     if(S.py_parts[num].length===0){delete S.py_parts[num];delete S.py[num];}
     else{const tot=S.py_parts[num].reduce((a,p)=>a+parseFloat(p.montant||0),0);const s=Object.values(S.s).flat().find(s=>s&&s.num===num);const mt=s?sMontant(s):0;S.py[num]={...S.py[num],st:tot>=mt-0.01?'payé':'partiel',m2:tot.toFixed(2)};}
@@ -1750,7 +1758,7 @@ function genAttestPDF(){
   doc.text('Signature',18,y);y+=18;
   doc.setDrawColor(150);doc.line(18,y,75,y);
 
-  // LOGO SAP juste après la signature
+  // LOGO SAP juste après la signature (hauteur fixe 20mm, texte 24mm plus bas)
   const yLogoA=y+10;
   try{
     const imgA=new Image();imgA.src=SAP_LOGO;
@@ -1758,10 +1766,10 @@ function genAttestPDF(){
     canvA.width=imgA.width||200;canvA.height=imgA.height||150;
     const ctxA=canvA.getContext('2d');ctxA.clearRect(0,0,canvA.width,canvA.height);ctxA.drawImage(imgA,0,0);
     const pngA=canvA.toDataURL('image/png');
-    doc.addImage(pngA,'PNG',79,yLogoA,52,0);
+    doc.addImage(pngA,'PNG',79,yLogoA,52,20);
   }catch(e){}
   doc.setFontSize(8.5);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogoA+28,{align:'center'});
+  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogoA+24,{align:'center'});
   doc.save(`${f.n.replace(/[^A-Za-z0-9]/g,'_')}_${annee}.pdf`);
 }
 

@@ -357,7 +357,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <select id="ms-eleve" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"></select>
     </div>
     <div id="ms-lignes"></div>
-    <button class="btn bo bsm" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un prof</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn bo bsm" onclick="ajouterLigne()" style="flex:1;">➕ Ajouter un prof</button>
+      <button class="btn bo bsm" id="btn-ajouter-eleve" onclick="ajouterEleveSaisie()" style="flex:1;display:none;">➕ Ajouter un élève</button>
+    </div>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
     <div class="mbtns">
       <button class="btn bv" onclick="valSaisie()">✅ Valider</button>
@@ -771,13 +774,9 @@ function openS(idx){
   const f=S.f[idx],s=S.s[key]?S.s[key].find(s=>s.fi===idx)||{}:{};
   curIdx=idx;
   document.getElementById('m-saisie-nom').textContent=f.n+(f.p?' – '+f.p:'');
-  // Élève selector
-  const eleveFld=document.getElementById('ms-eleve-field');
-  const eleveEl=document.getElementById('ms-eleve');
-  if(f.eleves&&f.eleves.length){
-    eleveFld.style.display='block';
-    eleveEl.innerHTML='<option value="">Tous les élèves</option>'+f.eleves.map(e=>`<option value="${e}" ${s.eleve===e?'selected':''}>${e}</option>`).join('');
-  } else {eleveFld.style.display='none';}
+  // Bouton "Ajouter un élève" visible si famille a des élèves
+  const btnAjEleve=document.getElementById('btn-ajouter-eleve');
+  if(btnAjEleve)btnAjEleve.style.display=(f.eleves&&f.eleves.length)?'block':'none';
   document.getElementById('ms-num').value=s.num||'';
   // Rebuild lignes from saved data or default
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
@@ -802,6 +801,41 @@ function renderLignes(lignes,f){
       <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0"></div>
       <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
     </div>`).join('');
+}
+
+function ajouterEleveSaisie(){
+  const f=S.f[curIdx]||{};
+  if(!f.eleves||!f.eleves.length)return;
+  const c=document.getElementById('ms-lignes');
+  const n=c.querySelectorAll('[data-ligne]').length;
+  // Add ✕ to first bloc if needed
+  const first=c.querySelector('[data-ligne="0"]');
+  if(first&&!first.querySelector('button.rm-ligne')){
+    const btn=document.createElement('button');
+    btn.textContent='✕';btn.className='rm-ligne';
+    btn.setAttribute('onclick',"this.closest('[data-ligne]').remove()");
+    btn.style.cssText='position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);';
+    first.style.position='relative';first.appendChild(btn);
+  }
+  const eleveOpts=f.eleves.map(e=>`<option value="${e}">${e}</option>`).join('');
+  const div=document.createElement('div');
+  div.innerHTML=`<div data-ligne="${n}" data-type="eleve" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 4px;margin-bottom:8px;position:relative;">
+    <button class="rm-ligne" onclick="this.closest('[data-ligne]').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--danger);">✕</button>
+    <div style="font-size:.72rem;font-weight:700;color:var(--v);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px;">🎓 Élève</div>
+    <div class="field"><label class="sl">Élève</label>
+      <select id="ms-eleve-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select>
+    </div>
+    <div class="field"><label class="sl">Prof</label>
+      <select id="ms-i-${n}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectInterv('')}</select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="field"><label class="sl">Prix famille (€)</label><input type="number" id="ms-p-${n}" value="${CFG.prixFamille||35}" min="0" step="0.5"></div>
+      <div class="field"><label class="sl">Prix prof (€)</label><input type="number" id="ms-pp-${n}" value="${CFG.prixProf||28}" min="0" step="0.5"></div>
+    </div>
+    <div class="field"><label class="sl">Heures</label><input type="number" id="ms-h-${n}" value="" min="0" step="0.25" placeholder="0"></div>
+    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${n}" value="" placeholder="ex: 4, 11, 18 mars"></div>
+  </div>`;
+  c.appendChild(div.firstElementChild);
 }
 
 function ajouterLigne(){
@@ -851,7 +885,8 @@ function collectLignes(){
     const p=document.getElementById(`ms-p-${i}`);
     const d=document.getElementById(`ms-d-${i}`);
     const ppL=document.getElementById(`ms-pp-${i}`);
-    if(sel)result.push({i:sel.value,h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||(CFG.prixFamille||35),pp:parseFloat(ppL?.value)||(CFG.prixProf||28),d:d?.value||''});
+    const eleveL=document.getElementById(`ms-eleve-${i}`);
+    if(h)result.push({i:sel?sel.value:'',h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||(CFG.prixFamille||35),pp:parseFloat(ppL?.value)||(CFG.prixProf||28),d:d?.value||'',eleve:eleveL?eleveL.value:''});
   });
   return result;
 }
@@ -1052,10 +1087,10 @@ function mkPDF(s,f,m,a,tot){
     canvas.width=img.width||200;canvas.height=img.height||150;
     const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,270,52,0);
+    doc.addImage(pngData,'PNG',79,262,52,0);
   }catch(e){}
   doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,293,{align:'center'});
+  doc.text('-50% de réduction d\'impôt',105,291,{align:'center'});
   return doc;
 }
 
@@ -1328,13 +1363,14 @@ function rSuivi(){
     const t=sMontant(s);tT+=t;
     const py=S.py[s.num];
     const parts=(S.py_parts||{})[s.num]||[];
-    const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):(py&&py.st==='payé'?t:0);
-    if(paid>0){tP+=paid;if(paid>=t-0.01)nP++;}
+    const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):(py&&py.st==='payé'?t:(py&&py.st==='partiel'?parseFloat(py.m2||0):0));
+    tP+=paid;
+    if(paid>=t-0.01)nP++;
   });
   document.getElementById('suivi-stats').innerHTML=`
     <div class="sbox"><div class="v">${tT.toFixed(0)} €</div><div class="l">Total facturé</div></div>
     <div class="sbox g"><div class="v">${tP.toFixed(0)} €</div><div class="l">Encaissé (${nP}/${ss.length})</div></div>
-    <div class="sbox o"><div class="v">${(tT-tP).toFixed(0)} €</div><div class="l">En attente</div></div>`;
+    <div class="sbox o"><div class="v">${Math.max(0,tT-tP).toFixed(0)} €</div><div class="l">En attente</div></div>`;
   const c=document.getElementById('pl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">💰</div><p>Aucune facture ce mois-ci</p></div>';return;}
   c.innerHTML=ss.map(s=>{
@@ -1354,11 +1390,13 @@ function rSuiviImpaye(){
       .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'))
       .forEach(s=>{
       const py=S.py[s.num]||{};
-      if(py.st!=='payé'&&py.st!=='partiel') impayees.push({s,m,a});
-      else if(py.st==='partiel') impayees.push({s,m,a}); // partiel reste en attente
+      const parts2=(S.py_parts||{})[s.num]||[];
+      const paid2=parts2.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+      const mt2=sMontant(s);
+      if(paid2<mt2-0.01) impayees.push({s,m,a,reste:mt2-paid2});
     });
   }
-  const tT=impayees.reduce((acc,{s})=>acc+sMontant(s),0);
+  const tT=impayees.reduce((acc,{reste,s})=>acc+(reste||sMontant(s)),0);
   document.getElementById('suivi-stats').innerHTML=`
     <div class="sbox o" style="grid-column:1/-1;"><div class="v">${tT.toFixed(0)} €</div><div class="l">Total impayé ${a} (${impayees.length} facture${impayees.length>1?'s':''})</div></div>`;
   const c=document.getElementById('pl');
@@ -1699,7 +1737,18 @@ function genAttestPDF(){
   doc.text('Signature',18,y);y+=18;
   doc.setDrawColor(150);doc.line(18,y,75,y);
 
-  doc.save(`Attestation_Fiscale_${f.n.replace(/\s/g,'_')}_${annee}.pdf`);
+  // LOGO SAP en bas (identique aux factures)
+  try{
+    const imgA=new Image();imgA.src=SAP_LOGO;
+    const canvA=document.createElement('canvas');
+    canvA.width=imgA.width||200;canvA.height=imgA.height||150;
+    const ctxA=canvA.getContext('2d');ctxA.clearRect(0,0,canvA.width,canvA.height);ctxA.drawImage(imgA,0,0);
+    const pngA=canvA.toDataURL('image/png');
+    doc.addImage(pngA,'PNG',79,262,52,0);
+  }catch(e){}
+  doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
+  doc.text('-50% de réduction d\'impôt',105,291,{align:'center'});
+  doc.save(`${f.n.replace(/[^A-Za-z0-9]/g,'_')}_${annee}.pdf`);
 }
 
 function sendMailAttestation(){

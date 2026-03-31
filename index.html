@@ -774,9 +774,18 @@ function openS(idx){
   const f=S.f[idx],s=S.s[key]?S.s[key].find(s=>s.fi===idx)||{}:{};
   curIdx=idx;
   document.getElementById('m-saisie-nom').textContent=f.n+(f.p?' – '+f.p:'');
-  // Bouton "Ajouter un élève" visible si famille a des élèves
+  // Champ élève en haut + bouton "Ajouter un élève"
+  const eleveFld=document.getElementById('ms-eleve-field');
+  const eleveEl=document.getElementById('ms-eleve');
   const btnAjEleve=document.getElementById('btn-ajouter-eleve');
-  if(btnAjEleve)btnAjEleve.style.display=(f.eleves&&f.eleves.length)?'block':'none';
+  if(f.eleves&&f.eleves.length){
+    if(eleveFld)eleveFld.style.display='block';
+    if(eleveEl)eleveEl.innerHTML='<option value="">-- Choisir un élève --</option>'+f.eleves.map(e=>`<option value="${e}" ${s.eleve===e?'selected':''}>${e}</option>`).join('');
+    if(btnAjEleve)btnAjEleve.style.display='block';
+  } else {
+    if(eleveFld)eleveFld.style.display='none';
+    if(btnAjEleve)btnAjEleve.style.display='none';
+  }
   document.getElementById('ms-num').value=s.num||'';
   // Rebuild lignes from saved data or default
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||f.pr||35}];
@@ -894,14 +903,14 @@ function collectLignes(){
 function valSaisie(){
   const key=gk(),m=gm(),a=ga();
   const numManuel=document.getElementById('ms-num').value.trim();
-  const eleveSelEl=document.getElementById('ms-eleve');if(eleveSelEl)curSaisieEleve=eleveSelEl.value||'';
+  const eleveSelEl=document.getElementById('ms-eleve');const selectedEleve=eleveSelEl?eleveSelEl.value||'':'';
   const lignes=collectLignes().filter(l=>l.h>0);
   const idx=curIdx;
   if(!S.s[key])S.s[key]=[];
   let s=S.s[key].find(s=>s.fi===idx);
   if(!s){s={fi:idx};S.s[key].push(s);}
   s.lignes=lignes;
-  s.eleve=curSaisieEleve;
+  s.eleve=selectedEleve;
   // pp per ligne already saved in lignes[].pp
   s.pp=lignes.length>0?(lignes[0].pp||CFG.prixProf||28):CFG.prixProf||28;
   s.prixFam=lignes.length>0?(lignes[0].pr||CFG.prixFamille||35):CFG.prixFamille||35;
@@ -975,7 +984,7 @@ function voirF(fi,m,a){
   const adrAss=[CFG.adr,CFG.adr2].filter(Boolean);
   const dataRows=lignes.filter(l=>l.h>0).map(l=>`
     <tr>
-      <td style="vertical-align:middle;">Cours particuliers</td>
+      <td style="vertical-align:middle;">Cours particuliers${l.eleve?' '+l.eleve:''}</td>
       <td style="vertical-align:middle;">${l.h}</td>
       <td style="vertical-align:middle;">${l.i}</td>
       <td style="vertical-align:middle;"><strong>${l.d||MN[m]}</strong></td>
@@ -1047,7 +1056,7 @@ function mkPDF(s,f,m,a,tot){
   lignes.filter(l=>l.h>0).forEach(l=>{
     const lt=(l.h*l.pr).toFixed(2);
     const moisTxt=l.d||MN[m];
-    const vals=['Cours particuliers',String(l.h),l.i||'',moisTxt,l.pr+' €',lt+' €'];
+    const vals=['Cours particuliers'+(l.eleve?' '+l.eleve:''),String(l.h),l.i||'',moisTxt,l.pr+' €',lt+' €'];
     cols.forEach((x,i)=>{
       doc.rect(x,y,cw[i],rh);
       if(i===3){// Mois en gras
@@ -1080,17 +1089,19 @@ function mkPDF(s,f,m,a,tot){
   y+=7;
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
-  // LOGO SAP en bas de page (position absolue, pas de superposition)
+  // LOGO SAP juste après IBAN
+  const yLogo=y+12;
   try{
     const img=new Image();img.src=SAP_LOGO;
     const canvas=document.createElement('canvas');
     canvas.width=img.width||200;canvas.height=img.height||150;
     const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0);
     const pngData=canvas.toDataURL('image/png');
-    doc.addImage(pngData,'PNG',79,262,52,0);
+    doc.addImage(pngData,'PNG',79,yLogo,52,0);
   }catch(e){}
-  doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,291,{align:'center'});
+  // Mention sur avant-dernière ligne (logo ~20mm de haut + marge)
+  doc.setFontSize(8.5);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
+  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogo+28,{align:'center'});
   return doc;
 }
 
@@ -1409,11 +1420,13 @@ function rSuiviImpaye(){
     const lignes=impayees.filter(x=>x.m===m);
     if(!lignes.length)continue;
     html+=`<div style="font-size:.75rem;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.5px;padding:8px 2px 4px;">${MN[m]}</div>`;
-    html+=lignes.map(({s,m,a})=>{
+    html+=lignes.map(({s,m,a,reste})=>{
       const f=S.f[s.fi];
       if(!f)return '';
-      const tot=sMontant(s).toFixed(2),py={};
-      return mkSuiviItem(s,f,tot,py,false,m,a);
+      const tot=sMontant(s).toFixed(2);
+      const py=S.py[s.num]||{};
+      const paye=false;
+      return mkSuiviItem(s,f,tot,py,paye,m,a);
     }).filter(Boolean).join('');
   }
   c.innerHTML=html;
@@ -1737,17 +1750,18 @@ function genAttestPDF(){
   doc.text('Signature',18,y);y+=18;
   doc.setDrawColor(150);doc.line(18,y,75,y);
 
-  // LOGO SAP en bas (identique aux factures)
+  // LOGO SAP juste après la signature
+  const yLogoA=y+10;
   try{
     const imgA=new Image();imgA.src=SAP_LOGO;
     const canvA=document.createElement('canvas');
     canvA.width=imgA.width||200;canvA.height=imgA.height||150;
     const ctxA=canvA.getContext('2d');ctxA.clearRect(0,0,canvA.width,canvA.height);ctxA.drawImage(imgA,0,0);
     const pngA=canvA.toDataURL('image/png');
-    doc.addImage(pngA,'PNG',79,262,52,0);
+    doc.addImage(pngA,'PNG',79,yLogoA,52,0);
   }catch(e){}
-  doc.setFontSize(8);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction d\'impôt',105,291,{align:'center'});
+  doc.setFontSize(8.5);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
+  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogoA+28,{align:'center'});
   doc.save(`${f.n.replace(/[^A-Za-z0-9]/g,'_')}_${annee}.pdf`);
 }
 

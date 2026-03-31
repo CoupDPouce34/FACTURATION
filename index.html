@@ -119,9 +119,12 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 <body>
 
 <header>
-  <div>
-    <h1>🌿 Coup d'Pouce</h1>
-    <div style="font-size:.7rem;opacity:.75;margin-top:1px;">Gestion facturation</div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <button id="btn-back" onclick="goBack()" style="display:none;align-items:center;gap:5px;background:rgba(255,255,255,.25);border:none;border-radius:22px;padding:6px 12px;color:white;font-size:.82rem;font-weight:700;cursor:pointer;">↩️ Annuler</button>
+    <div>
+      <h1>🌿 Coup d'Pouce</h1>
+      <div style="font-size:.7rem;opacity:.75;margin-top:1px;">Gestion facturation</div>
+    </div>
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
     <div id="sync-indicator" style="font-size:.68rem;font-weight:600;color:var(--vc);white-space:nowrap;">🔄</div>
@@ -409,8 +412,8 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="msheet">
     <div class="mhandle"></div>
     <div class="mtitle" id="m-fam-titre">Famille</div>
-    <div class="field"><label class="sl">Nom</label><input type="text" id="mf-n" placeholder="NOM DE FAMILLE"></div>
-    <div class="field"><label class="sl">Prénom</label><input type="text" id="mf-p" placeholder="Prénom de l'élève"></div>
+    <div class="field"><label class="sl">Nom</label><input type="text" id="mf-n" placeholder="NOM (attestation fiscale)"></div>
+    <div class="field"><label class="sl">Prénom</label><input type="text" id="mf-p" placeholder="Prénom (attestation fiscale)"></div>
     <div class="field"><label class="sl">Rue</label><input type="text" id="mf-rue" placeholder="ex: 5 rue Marcel Pagnol"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <div class="field"><label class="sl">Code postal</label><input type="text" id="mf-cp" placeholder="34150" inputmode="numeric"></div>
@@ -418,7 +421,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     </div>
     <div class="field"><label class="sl">Email</label><input type="text" id="mf-e" placeholder="email@famille.fr" inputmode="email"></div>
     <div class="field"><label class="sl">Téléphone</label><input type="text" id="mf-tel" placeholder="06 xx xx xx xx" inputmode="tel"></div>
-    <div class="field"><label class="sl">Intervenant</label>
+    <div class="field"><label class="sl">Prof</label>
       <select id="mf-iv" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;"></select>
     </div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="mf-pr" placeholder="ex: tarif spécial, frère/sœur..."></div>
@@ -617,6 +620,56 @@ const FI=[
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{}};
 let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
+// ── SYSTÈME UNDO ──
+let undoStack=[];
+const UNDO_MAX=20;
+
+function snapshotS(){
+  // Sauvegarde profonde de S avant une action
+  const snap=JSON.parse(JSON.stringify(S));
+  undoStack.push(snap);
+  if(undoStack.length>UNDO_MAX)undoStack.shift();
+  updateUndoBtn();
+}
+
+function updateUndoBtn(){
+  const btn=document.getElementById('btn-back');
+  if(btn)btn.style.display=undoStack.length>0?'flex':'none';
+}
+
+function goBack(){
+  if(undoStack.length===0)return;
+  S=undoStack.pop();
+  // Sauvegarder l'état restauré
+  localStorage.setItem('cdp3',JSON.stringify(S));
+  fbSave();
+  updateUndoBtn();
+  // Rafraîchir la vue courante
+  const active=document.querySelector('.page.active');
+  if(active){
+    const id=active.id.replace('pg-','');
+    if(id==='saisie')rSaisie();
+    else if(id==='factures')rFact();
+    else if(id==='suivi')rSuivi();
+    else if(id==='profs')rProfs();
+    else if(id==='familles')rFam();
+    else if(id==='apercu')rFact();
+    else if(id==='reglages')rReglages();
+  }
+  // Toast de confirmation
+  showUndoToast();
+}
+
+function showUndoToast(){
+  let t=document.getElementById('undo-toast');
+  if(!t){t=document.createElement('div');t.id='undo-toast';t.style.cssText='position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1e40af;color:#fff;padding:8px 18px;border-radius:20px;font-size:.82rem;font-weight:700;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;';document.body.appendChild(t);}
+  t.textContent='↩️ Action annulée';t.style.opacity='1';
+  setTimeout(()=>t.style.opacity='0',1800);
+}
+
+// Compatibilité navHistory (non utilisé mais référencé dans showPage)
+let navHistory=[];
+function pushNav(){}
 
 function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
 function ga(){const el=document.getElementById('s-an');return el?parseInt(el.value):new Date().getFullYear();}
@@ -693,6 +746,8 @@ function showPage(id,btn){
   if(btn)btn.classList.add('on');
   else{const map={saisie:0,factures:1,apercu:1,suivi:2,profs:3,familles:4,attestation:4,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
   document.querySelector('.scroll').scrollTop=0;
+  // Mettre à jour bouton undo
+  updateUndoBtn();
   if(id==='saisie')rSaisie();
   if(id==='factures')rFact();
   if(id==='suivi')rSuivi();
@@ -758,7 +813,9 @@ function rSaisie(){
     const htot=sTotal(s);
     const on=htot>0;
     const interv=s.lignes&&s.lignes.length?s.lignes.map(l=>l.i).filter(Boolean).join(', '):(s.i||f.i||'');
-    return`<div class="fc ${on?'on':''}"><div class="fh" onclick="openS(${idx})"><div style="flex:1;min-width:0;"><div class="fn">${f.n}</div><div class="fs">${f.p?f.p+' · ':''}${interv}</div></div><div style="text-align:right;margin-left:9px;"><div class="${on?'ft':'ft ftvide'}">${on?tot.toFixed(2)+' €':'+ Saisir'}</div>${on?`<div style="font-size:.7rem;color:var(--gris);">${htot}h</div>`:''}</div></div></div>`;
+    const elevesStr=(f.eleves&&f.eleves.length)?f.eleves.join(', '):'';
+    const ligne2=elevesStr?(elevesStr+(interv?' – '+interv:'')):interv;
+    return`<div class="fc ${on?'on':''}"><div class="fh" onclick="openS(${idx})"><div style="flex:1;min-width:0;"><div class="fn">${f.n}${f.p?' '+f.p:''}</div><div class="fs">${ligne2}</div></div><div style="text-align:right;margin-left:9px;"><div class="${on?'ft':'ft ftvide'}">${on?tot.toFixed(2)+' €':'+ Saisir'}</div>${on?`<div style="font-size:.7rem;color:var(--gris);">${htot}h</div>`:''}</div></div></div>`;
   }).join('');
 }
 
@@ -848,7 +905,7 @@ function collectLignes(){
   return result;
 }
 
-function valSaisie(){
+function valSaisie(){snapshotS();
   const key=gk(),m=gm(),a=ga();
   const numManuel=document.getElementById('ms-num').value.trim();
   const selectedEleve='';
@@ -891,7 +948,7 @@ function rChoixFam(){
   }).join('');
 }
 
-function effSaisie(){
+function effSaisie(){snapshotS();
   const key=gk(),idx=curIdx;
   if(S.s[key]){const i=S.s[key].findIndex(s=>s.fi===idx);if(i>=0)S.s[key].splice(i,1);}
   save();cm('m-saisie');rSaisie();
@@ -1135,7 +1192,7 @@ function buildProfPayDone(profKey,pyp,totalEur,totalH,prixProf){
     <button class="btn bxs" style="color:var(--danger);border:1.5px solid var(--danger);background:white;font-weight:700;" onclick="annPayProf('${profKey}')">↩️ Annuler le paiement (${pyp.montant||totalEur} €)</button>`;
 }
 
-function annPayProfPartiel(key,idx){
+function annPayProfPartiel(key,idx){snapshotS();
   if(!confirm('Annuler ce paiement ?'))return;
   if(S.pyp_parts&&S.pyp_parts[key]){
     S.pyp_parts[key].splice(idx,1);
@@ -1275,7 +1332,7 @@ function openPayProf(key,nom,montant){
   document.getElementById('m-pay-prof').classList.add('open');
 }
 
-function valPayProf(){
+function valPayProf(){snapshotS();
   if(!curPayProfKey)return;
   if(!S.pyp)S.pyp={};
   if(!S.pyp_parts)S.pyp_parts={};
@@ -1290,7 +1347,7 @@ function valPayProf(){
   save();cm('m-pay-prof');rProfs();
 }
 
-function annPayProf(key){
+function annPayProf(key){snapshotS();
   if(!confirm('Annuler ce paiement ?'))return;
   if(S.pyp)delete S.pyp[key];
   save();rProfs();
@@ -1413,7 +1470,7 @@ function openPy(num){
   inp.value=reste;inp.max=reste;
   document.getElementById('m-pay').classList.add('open');
 }
-function valPay(){
+function valPay(){snapshotS();
   if(!curPayN)return;
   const montantSaisi=parseFloat(document.getElementById('py-montant').value)||0;
   const maxPay=parseFloat(document.getElementById('py-montant').max)||999999;
@@ -1435,7 +1492,7 @@ function annPyRef(storeIdx){
   annPy(ref.num,ref.idx);
 }
 
-function annPy(num,idx){
+function annPy(num,idx){snapshotS();
   if(!confirm('Annuler ce paiement ?'))return;
   if(idx!==undefined&&idx!==null&&idx>=0&&S.py_parts&&S.py_parts[num]){
     S.py_parts[num].splice(idx,1);
@@ -1524,7 +1581,7 @@ function editFam(idx){
   document.getElementById('m-fam').classList.add('open');
 }
 
-function valFam(){
+function valFam(){snapshotS();
   const f={
     n:document.getElementById('mf-n').value.trim(),
     p:document.getElementById('mf-p').value.trim(),
@@ -1542,7 +1599,7 @@ function valFam(){
   save();rFam();cm('m-fam');
 }
 
-function delFam(){
+function delFam(){snapshotS();
   const idx=parseInt(document.getElementById('mf-idx').value);
   if(!confirm('Supprimer cette famille ?'))return;
   S.f.splice(idx,1);save();rFam();cm('m-fam');
@@ -1754,7 +1811,7 @@ function rReglages(){
   document.getElementById('cfg-rep-titre').value=CFG.repTitre||'';
   rCodes();
 }
-function saveCFG(){
+function saveCFG(){snapshotS();
   CFG.nom=document.getElementById('cfg-nom').value.trim()||CFG_DEF.nom;
   CFG.adr=document.getElementById('cfg-adr').value.trim()||CFG_DEF.adr;
   CFG.tel=document.getElementById('cfg-tel').value.trim();
@@ -1795,7 +1852,7 @@ function editCode(nom){
   document.getElementById('mc-del').style.display='block';
   document.getElementById('m-code').classList.add('open');
 }
-function valCode(){
+function valCode(){snapshotS();
   const nom=document.getElementById('mc-nom').value.trim();
   const code=document.getElementById('mc-code').value.trim().toUpperCase();
   const old=document.getElementById('mc-old').value;
@@ -1805,7 +1862,7 @@ function valCode(){
   localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
   cm('m-code');rCodes();
 }
-function delCode(){
+function delCode(){snapshotS();
   const old=document.getElementById('mc-old').value;
   if(!confirm('Supprimer '+old+' ?'))return;
   delete CODES[old];
@@ -1821,7 +1878,7 @@ function expData(){
 function impData(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=e=>{try{
+  reader.onload=e=>{try{snapshotS();
     const d=JSON.parse(e.target.result);
     if(d.familles)S.f=d.familles;
     if(d.saisies)S.s=d.saisies;

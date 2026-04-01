@@ -138,7 +138,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 
 
   <!-- PAGE SAISIE -->
-  <div class="page active" id="pg-saisie">
+  <div class="page" id="pg-saisie">
     <div class="mbar">
       <select id="s-mois" onchange="onMC()">
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
@@ -148,16 +148,13 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
       <select id="s-an" onchange="onMC()" style="max-width:88px;"></select>
     </div>
-    <div class="srow" style="grid-template-columns:1fr 1fr;">
-      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
-      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
-    </div>
+
     <div class="search"><input type="text" id="ss" placeholder="Rechercher une famille..." oninput="rSaisie()"></div>
     <div id="sl"></div>
   </div>
 
   <!-- PAGE FACTURES -->
-  <div class="page" id="pg-factures">
+  <div class="page active" id="pg-factures">
     <div class="mbar">
       <select id="f-mois" onchange="rFact()">
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
@@ -167,6 +164,11 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
       <select id="f-an" onchange="rFact()" style="max-width:88px;"></select>
     </div>
+    <div class="srow" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
+      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
+      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
+    </div>
+    <button class="btn bv bfull bsm" onclick="ouvrirSaisieDepuisFactures()" style="margin-bottom:8px;">✏️ Créer une facture</button>
     <button class="btn bc bfull bsm" onclick="expToutPDF()">📥 Télécharger tous les PDF</button>
     <div id="fl"></div>
   </div>
@@ -316,8 +318,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 </div>
 
 <nav class="bnav">
-  <button class="on" onclick="showPage('saisie',this)"><span class="i">📝</span>Saisie</button>
-  <button onclick="showPage('factures',this)"><span class="i">🧾</span>Factures</button>
+  <button class="on" onclick="showPage('factures',this)"><span class="i">🧾</span>Factures</button>
   <button onclick="showPage('suivi',this)"><span class="i">💰</span>Paiements</button>
   <button onclick="showPage('profs',this)"><span class="i">👨‍🏫</span>Profs</button>
   <button onclick="showPage('familles',this)"><span class="i">👨‍👩‍👧</span>Familles</button>
@@ -526,9 +527,10 @@ function sTotal(s){
 }
 // Helper: total amount of a saisie
 function sMontant(s){
-  const pxFam=CFG.prixFamille||35;
-  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||pxFam),0);
-  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||pxFam);
+  // Prix figé au moment de la saisie (s.prixFige), ou ligne par ligne (l.pr)
+  // Ne jamais utiliser CFG.prixFamille pour une facture déjà validée
+  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||s.prixFige||35),0);
+  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||s.prixFige||35);
 }
 // Helper: build intervenant select options
 function selectInterv(selected=''){
@@ -744,7 +746,7 @@ function showPage(id,btn){
   document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+id).classList.add('active');
   if(btn)btn.classList.add('on');
-  else{const map={saisie:0,factures:1,apercu:1,suivi:2,profs:3,familles:4,attestation:4,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
+  else{const map={saisie:99,factures:0,apercu:0,suivi:1,profs:2,familles:3,attestation:3,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
   document.querySelector('.scroll').scrollTop=0;
   // Mettre à jour bouton undo
   updateUndoBtn();
@@ -919,18 +921,56 @@ function valSaisie(){snapshotS();
   // pp per ligne already saved in lignes[].pp
   s.pp=lignes.length>0?(lignes[0].pp||CFG.prixProf||28):CFG.prixProf||28;
   s.prixFam=lignes.length>0?(lignes[0].pr||CFG.prixFamille||35):CFG.prixFamille||35;
+  s.prixFige=s.prixFam; // Prix figé à la validation
   // Keep legacy h/i/pr/d for compatibility
   if(lignes.length===1){s.h=lignes[0].h;s.i=lignes[0].i;s.pr=lignes[0].pr;s.d=lignes[0].d;}
   else if(lignes.length>1){s.h=lignes.reduce((a,l)=>a+l.h,0);s.i=lignes.map(l=>l.i).join(', ');}
   if(numManuel){s.num=numManuel;}
   else if(lignes.length>0&&!s.num){const seq=S.s[key].filter(s2=>s2.lignes&&s2.lignes.some(l=>l.h>0)&&s2.fi!==idx).length+1;s.num=genN(idx,m,a,seq);}
   else if(lignes.length===0)s.num=null;
-  save();cm('m-saisie');rSaisie();
+  save();cm('m-saisie');
   document.getElementById('f-mois').value=m;
   document.getElementById('f-an').value=a;
+  showPage('factures');
 }
 
 function ouvrirNouvelleFacture(){showPage('saisie');}
+
+function ouvrirSaisieDepuisFactures(){
+  // Synchroniser les sélecteurs mois/année saisie avec factures
+  const m=parseInt(document.getElementById('f-mois').value);
+  const a=parseInt(document.getElementById('f-an').value);
+  document.getElementById('s-mois').value=m;
+  document.getElementById('s-an').value=a;
+  showPage('saisie');
+}
+
+function modifierSaisie(fi,m,a){
+  // Synchroniser saisie sur le bon mois
+  document.getElementById('s-mois').value=m;
+  document.getElementById('s-an').value=a;
+  showPage('saisie');
+  // Ouvrir directement la famille
+  setTimeout(()=>openS(fi),150);
+}
+
+function supprimerFacture(fi,m,a){
+  const f=S.f[fi];
+  if(!f)return;
+  if(!confirm('Supprimer la facture de '+f.n+' '+f.p+' pour '+MN[m]+' '+a+' ?'))return;
+  snapshotS();
+  const key=m+'_'+a;
+  if(S.s[key]){
+    const idx=S.s[key].findIndex(s=>s.fi===fi);
+    if(idx>=0){
+      const s=S.s[key][idx];
+      // Supprimer aussi les paiements liés
+      if(s.num){delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}
+      S.s[key].splice(idx,1);
+    }
+  }
+  save();rFact();
+}
 
 function rChoixFam(){
   const q=(document.getElementById('choix-fam-search')?.value||'').toLowerCase();
@@ -974,7 +1014,16 @@ function rFact(){
     const partiel=py&&py.st==='partiel';
     const badge=paye?'bvert':partiel?'bpartiel':'borg';
     const label=paye?'payé':partiel?`partiel (${py.m2||''}€)`:'en attente';
-    return`<div class="fact-item" onclick="voirF(${s.fi},${m},${a})"><div class="fi-info"><div class="fi-nom">${f.n} ${f.p}</div><div class="fi-sub">${s.num||'—'} · ${interv} · ${sTotal(s)}h</div></div><div class="fi-right"><div class="fi-mnt">${tot} €</div><span class="badge ${badge}">${label}</span></div></div>`;
+    return`<div class="fact-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="voirF(${s.fi},${m},${a})">
+        <div class="fi-info"><div class="fi-nom">${f.n} ${f.p}</div><div class="fi-sub">${s.num||'—'} · ${interv} · ${sTotal(s)}h</div></div>
+        <div class="fi-right"><div class="fi-mnt">${tot} €</div><span class="badge ${badge}">${label}</span></div>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn bv bxs bsm" style="flex:1;" onclick="modifierSaisie(${s.fi},${m},${a})">✏️ Modifier</button>
+        <button class="btn bd bxs bsm" style="flex:1;" onclick="supprimerFacture(${s.fi},${m},${a})">🗑 Supprimer</button>
+      </div>
+    </div>`;
   }).filter(Boolean).join('');
 }
 

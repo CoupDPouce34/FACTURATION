@@ -181,7 +181,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
         <option value="toutes">Toutes</option>
         <option value="az">A → Z</option>
         <option value="za">Z → A</option>
-        <option value="envoye">✉️ Envoyé</option>
+        <option value="aenvoyer">✉️ À envoyer</option>
         <option value="attente">⏳ En attente</option>
         <option value="paye">✅ Payé</option>
       </select>
@@ -691,8 +691,19 @@ function showUndoToast(){
 let navHistory=[];
 function pushNav(){}
 
-function gm(){const el=document.getElementById('s-mois');return el?parseInt(el.value):new Date().getMonth()+1;}
-function ga(){const el=document.getElementById('s-an');return el?parseInt(el.value):new Date().getFullYear();}
+function gm(){
+  // Priorité à f-mois (Factures) qui est la source de vérité
+  const ef=document.getElementById('f-mois');
+  const es=document.getElementById('s-mois');
+  const v=ef?parseInt(ef.value):(es?parseInt(es.value):new Date().getMonth()+1);
+  return v||new Date().getMonth()+1;
+}
+function ga(){
+  const ef=document.getElementById('f-an');
+  const es=document.getElementById('s-an');
+  const v=ef?parseInt(ef.value):(es?parseInt(es.value):new Date().getFullYear());
+  return v||new Date().getFullYear();
+}
 function gk(){return gm()+'_'+ga();}
 
 function init(){
@@ -1054,10 +1065,25 @@ function rFact(){
   const tri=(document.getElementById('f-tri')?.value)||'toutes';
   let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
   // Filtre
-  if(tri==='envoye') ss=ss.filter(s=>s.envoye);
-  else if(tri==='attente') ss=ss.filter(s=>{const py=S.py[s.num];const parts=(S.py_parts||{})[s.num]||[];const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);return paid<sMontant(s)-0.01;});
-  else if(tri==='paye') ss=ss.filter(s=>{const parts=(S.py_parts||{})[s.num]||[];const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);return paid>=sMontant(s)-0.01;});
-  // Tri
+  if(tri==='aenvoyer'){
+    // Factures NON cochées "envoyé"
+    ss=ss.filter(s=>!s.envoye);
+  } else if(tri==='attente'){
+    // Factures avec au moins 1€ non payé
+    ss=ss.filter(s=>{
+      const parts=(S.py_parts||{})[s.num]||[];
+      const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+      return paid<sMontant(s)-0.01;
+    });
+  } else if(tri==='paye'){
+    // Factures entièrement payées
+    ss=ss.filter(s=>{
+      const parts=(S.py_parts||{})[s.num]||[];
+      const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+      return paid>=sMontant(s)-0.01;
+    });
+  }
+  // Tri alphabétique
   if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
   else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   const c=document.getElementById('fl');

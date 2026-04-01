@@ -178,6 +178,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     </div>
     <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
       <select id="f-tri" onchange="rFact()" style="flex:1;padding:9px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.85rem;background:#fff;-webkit-appearance:none;">
+        <option value="toutes">Toutes</option>
         <option value="az">A → Z</option>
         <option value="za">Z → A</option>
         <option value="envoye">✉️ Envoyé</option>
@@ -1050,12 +1051,12 @@ function rFact(){
   const elAn=document.getElementById('st-an');if(elAn)elAn.textContent=totAn.toFixed(0)+' €';
   const elHA=document.getElementById('st-h-an');if(elHA)elHA.textContent=hAn>0?hAn+'h':'';
 
-  const tri=(document.getElementById('f-tri')?.value)||'az';
+  const tri=(document.getElementById('f-tri')?.value)||'toutes';
   let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
   // Filtre
   if(tri==='envoye') ss=ss.filter(s=>s.envoye);
-  else if(tri==='attente') ss=ss.filter(s=>!S.py[s.num]||S.py[s.num].st==='partiel'||(!S.py[s.num].st));
-  else if(tri==='paye') ss=ss.filter(s=>S.py[s.num]&&S.py[s.num].st==='payé');
+  else if(tri==='attente') ss=ss.filter(s=>{const py=S.py[s.num];const parts=(S.py_parts||{})[s.num]||[];const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);return paid<sMontant(s)-0.01;});
+  else if(tri==='paye') ss=ss.filter(s=>{const parts=(S.py_parts||{})[s.num]||[];const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);return paid>=sMontant(s)-0.01;});
   // Tri
   if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
   else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
@@ -1489,15 +1490,8 @@ function rSuivi(){window._annPyRefs=[];
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
   const key=m+'_'+a;
-  const tri=(document.getElementById('f-tri')?.value)||'az';
-  let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
-  // Filtre
-  if(tri==='envoye') ss=ss.filter(s=>s.envoye);
-  else if(tri==='attente') ss=ss.filter(s=>!S.py[s.num]||S.py[s.num].st==='partiel'||(!S.py[s.num].st));
-  else if(tri==='paye') ss=ss.filter(s=>S.py[s.num]&&S.py[s.num].st==='payé');
-  // Tri
-  if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
-  else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
+  let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
+    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   let tT=0,tP=0,nP=0;
   ss.forEach(s=>{
     const t=sMontant(s);tT+=t;

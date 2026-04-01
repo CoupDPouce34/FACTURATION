@@ -164,9 +164,26 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       </select>
       <select id="f-an" onchange="rFact()" style="max-width:88px;"></select>
     </div>
-    <div class="srow" style="grid-template-columns:1fr 1fr;margin-bottom:10px;">
-      <div class="sbox"><div class="v" id="st-tot">0 €</div><div id="st-h-mois" style="font-size:.8rem;font-weight:700;color:var(--vc);"></div><div class="l">Total du mois</div></div>
-      <div class="sbox g"><div class="v" id="st-an">0 €</div><div id="st-h-an" style="font-size:.8rem;font-weight:700;color:var(--v);"></div><div class="l">Total annuel</div></div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <div style="flex:1;background:#fff;border:1.5px solid var(--bord);border-radius:var(--r);padding:8px 10px;text-align:center;">
+        <div style="font-size:1.1rem;font-weight:800;color:var(--v);" id="st-tot">0 €</div>
+        <div id="st-h-mois" style="font-size:.7rem;font-weight:700;color:var(--vc);"></div>
+        <div style="font-size:.68rem;color:var(--gris);">Mois</div>
+      </div>
+      <div style="flex:1;background:#fff;border:1.5px solid var(--bord);border-radius:var(--r);padding:8px 10px;text-align:center;">
+        <div style="font-size:1.1rem;font-weight:800;color:#059669;" id="st-an">0 €</div>
+        <div id="st-h-an" style="font-size:.7rem;font-weight:700;color:#059669;"></div>
+        <div style="font-size:.68rem;color:var(--gris);">Annuel</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
+      <select id="f-tri" onchange="rFact()" style="flex:1;padding:9px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.85rem;background:#fff;-webkit-appearance:none;">
+        <option value="az">A → Z</option>
+        <option value="za">Z → A</option>
+        <option value="envoye">✉️ Envoyé</option>
+        <option value="attente">⏳ En attente</option>
+        <option value="paye">✅ Payé</option>
+      </select>
     </div>
     <button class="btn bv bfull bsm" onclick="ouvrirSaisieDepuisFactures()" style="margin-bottom:8px;">✏️ Créer une facture</button>
     <button class="btn bc bfull bsm" onclick="expToutPDF()">📥 Télécharger tous les PDF</button>
@@ -1033,8 +1050,15 @@ function rFact(){
   const elAn=document.getElementById('st-an');if(elAn)elAn.textContent=totAn.toFixed(0)+' €';
   const elHA=document.getElementById('st-h-an');if(elHA)elHA.textContent=hAn>0?hAn+'h':'';
 
-  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
-    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
+  const tri=(document.getElementById('f-tri')?.value)||'az';
+  let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+  // Filtre
+  if(tri==='envoye') ss=ss.filter(s=>s.envoye);
+  else if(tri==='attente') ss=ss.filter(s=>!S.py[s.num]||S.py[s.num].st==='partiel'||(!S.py[s.num].st));
+  else if(tri==='paye') ss=ss.filter(s=>S.py[s.num]&&S.py[s.num].st==='payé');
+  // Tri
+  if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
+  else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   const c=document.getElementById('fl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture ce mois.<br>Appuie sur "Nouvelle facture" pour saisir.</p></div>';return;}
   c.innerHTML=ss.map(s=>{
@@ -1054,12 +1078,15 @@ function rFact(){
         <div class="fi-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
           <div class="fi-mnt">${tot} €</div>
           <span class="badge ${badge}">${label}</span>
-          ${envoye?`<span class="badge benvoye">✉️ Envoyé</span>`:''}
+
         </div>
       </div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
         <button class="btn bv bxs bsm" style="flex:1;" onclick="modifierSaisie(${s.fi},${m},${a})">✏️ Modifier</button>
-        <button class="btn bxs bsm" style="flex:1;background:${envoye?'#ede9fe':'#f5f3ff'};color:#5b21b6;border:1.5px solid #c4b5fd;" onclick="toggleEnvoye('${numEscF}',${envoye})">${envoye?'✉️ Annuler envoi':'✉️ Marquer envoyé'}</button>
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:.82rem;font-weight:700;color:#5b21b6;" onclick="toggleEnvoye('${numEscF}',${envoye})">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #7c3aed;border-radius:4px;background:${envoye?'#7c3aed':'#fff'};flex-shrink:0;">${envoye?'<span style=\'color:#fff;font-size:.75rem;line-height:1;\'>✓</span>':''}</span>
+          Envoyé
+        </label>
         <button class="btn bd bxs bsm" style="flex:1;" onclick="supprimerFacture(${s.fi},${m},${a})">🗑 Supprimer</button>
       </div>
     </div>`;
@@ -1462,8 +1489,15 @@ function rSuivi(){window._annPyRefs=[];
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
   const key=m+'_'+a;
-  const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
-    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
+  const tri=(document.getElementById('f-tri')?.value)||'az';
+  let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+  // Filtre
+  if(tri==='envoye') ss=ss.filter(s=>s.envoye);
+  else if(tri==='attente') ss=ss.filter(s=>!S.py[s.num]||S.py[s.num].st==='partiel'||(!S.py[s.num].st));
+  else if(tri==='paye') ss=ss.filter(s=>S.py[s.num]&&S.py[s.num].st==='payé');
+  // Tri
+  if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
+  else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   let tT=0,tP=0,nP=0;
   ss.forEach(s=>{
     const t=sMontant(s);tT+=t;

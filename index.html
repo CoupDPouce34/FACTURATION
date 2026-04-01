@@ -1317,20 +1317,18 @@ function rProfs(){
   const m=parseInt(document.getElementById('pr-mois').value);
   const a=parseInt(document.getElementById('pr-an').value);
   const key=m+'_'+a;
-  // Annuel marge : somme de tous les paiements réellement encaissés
+  // Annuel marge : uniquement les paiements réellement dans py_parts
   let totFamAn=0,totProfPaye=0;
   for(let mm=1;mm<=12;mm++){
     const k=mm+'_'+a;
     (S.s[k]||[]).forEach(s=>{
-      // Utiliser py_parts pour avoir le vrai total encaissé
+      if(!s.num)return;
       const parts=(S.py_parts||{})[s.num]||[];
+      // Ne compter QUE si py_parts existe et contient des paiements
       if(parts.length>0){
         totFamAn+=parts.reduce((acc,p)=>acc+parseFloat(p.montant||0),0);
-      } else {
-        const py=S.py[s.num]||{};
-        if(py.st==='payé') totFamAn+=sMontant(s);
-        else if(py.st==='partiel') totFamAn+=parseFloat(py.m2||0);
       }
+      // Si py_parts vide : pas de paiement, même si S.py dit 'payé' (peut être un résidu)
     });
   }
   // Total payé aux profs (annuel) - use pyp_parts for accuracy
@@ -1443,9 +1441,9 @@ function rSuivi(){window._annPyRefs=[];
   let tT=0,tP=0,nP=0;
   ss.forEach(s=>{
     const t=sMontant(s);tT+=t;
-    const py=S.py[s.num];
     const parts=(S.py_parts||{})[s.num]||[];
-    const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):(py&&py.st==='payé'?t:(py&&py.st==='partiel'?parseFloat(py.m2||0):0));
+    // Ne compter QUE py_parts (source de vérité)
+    const paid=parts.length>0?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):0;
     tP+=paid;
     if(paid>=t-0.01)nP++;
   });

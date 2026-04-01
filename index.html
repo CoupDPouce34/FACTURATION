@@ -998,11 +998,24 @@ function effSaisie(){snapshotS();
 function rFact(){
   const m=parseInt(document.getElementById('f-mois').value),a=parseInt(document.getElementById('f-an').value);
   const key=m+'_'+a;
-  // (stats dans rSaisie)
+
+  // ── Totaux mois et annuel ──
+  let totMois=0,hMois=0,totAn=0,hAn=0;
+  (S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0).forEach(s=>{
+    totMois+=sMontant(s);hMois+=sTotal(s);
+  });
+  for(let mm=1;mm<=12;mm++){
+    (S.s[mm+'_'+a]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0).forEach(s=>{
+      totAn+=sMontant(s);hAn+=sTotal(s);
+    });
+  }
+  const elTot=document.getElementById('st-tot');if(elTot)elTot.textContent=totMois.toFixed(0)+' €';
+  const elHM=document.getElementById('st-h-mois');if(elHM)elHM.textContent=hMois>0?hMois+'h':'';
+  const elAn=document.getElementById('st-an');if(elAn)elAn.textContent=totAn.toFixed(0)+' €';
+  const elHA=document.getElementById('st-h-an');if(elHA)elHA.textContent=hAn>0?hAn+'h':'';
 
   const ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0)
-    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'))
-;
+    .sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   const c=document.getElementById('fl');
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture ce mois.<br>Appuie sur "Nouvelle facture" pour saisir.</p></div>';return;}
   c.innerHTML=ss.map(s=>{
@@ -1304,14 +1317,19 @@ function rProfs(){
   const m=parseInt(document.getElementById('pr-mois').value);
   const a=parseInt(document.getElementById('pr-an').value);
   const key=m+'_'+a;
-  // Annuel marge
+  // Annuel marge : somme de tous les paiements réellement encaissés
   let totFamAn=0,totProfPaye=0;
   for(let mm=1;mm<=12;mm++){
     const k=mm+'_'+a;
     (S.s[k]||[]).forEach(s=>{
-      const py=S.py[s.num]||{};
-      if(py.st==='payé'||py.st==='partiel'){
-        totFamAn+=parseFloat(py.m2)||sMontant(s);
+      // Utiliser py_parts pour avoir le vrai total encaissé
+      const parts=(S.py_parts||{})[s.num]||[];
+      if(parts.length>0){
+        totFamAn+=parts.reduce((acc,p)=>acc+parseFloat(p.montant||0),0);
+      } else {
+        const py=S.py[s.num]||{};
+        if(py.st==='payé') totFamAn+=sMontant(s);
+        else if(py.st==='partiel') totFamAn+=parseFloat(py.m2||0);
       }
     });
   }

@@ -1093,7 +1093,19 @@ function rFact(){
   if(tri==='za') ss.sort((a,b)=>S.f[b.fi].n.localeCompare(S.f[a.fi].n,'fr'));
   else ss.sort((a,b)=>S.f[a.fi].n.localeCompare(S.f[b.fi].n,'fr'));
   const c=document.getElementById('fl');
-  if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture ce mois.<br>Appuie sur "Nouvelle facture" pour saisir.</p></div>';return;}
+  if(!ss.length){
+    // Chercher des entrées avec h=0 pour diagnostic
+    const toutes=(S.s[key]||[]);
+    const avecH0=toutes.filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)===0&&S.f[s.fi]);
+    if(avecH0.length>0){
+      c.innerHTML='<div class="empty"><div class="ei">⚠️</div><p>'+avecH0.length+' facture(s) trouvée(s) mais sans heures saisies :<br>'+avecH0.map(s=>S.f[s.fi]?.n||'?').join(', ')+'<br><small style="color:var(--gris)">Ouvre "Modifier" pour re-saisir les heures</small></p>'
+        +avecH0.map(s=>{const f=S.f[s.fi];return`<button class="btn bo bsm" style="margin-top:6px;" onclick="modifierSaisie(${s.fi},${parseInt(document.getElementById('f-mois').value)},${parseInt(document.getElementById('f-an').value)})">✏️ ${f.n} ${f.p}</button>`;}).join('')
+        +'</div>';
+    } else {
+      c.innerHTML='<div class="empty"><div class="ei">📄</div><p>Aucune facture ce mois.<br>Appuie sur "Créer une facture" pour saisir.</p></div>';
+    }
+    return;
+  }
   c.innerHTML=ss.map(s=>{
     const f=S.f[s.fi];
     if(!f)return '';

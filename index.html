@@ -1063,24 +1063,30 @@ function rFact(){
   const elHA=document.getElementById('st-h-an');if(elHA)elHA.textContent=hAn>0?hAn+'h':'';
 
   const tri=(document.getElementById('f-tri')?.value)||'toutes';
-  let ss=(S.s[key]||[]).filter(s=>s.fi>=0&&s.fi<S.f.length&&sTotal(s)>0);
+  // Filtre robuste: vérifier index valide ET famille existante
+  let ss=(S.s[key]||[]).filter(s=>{
+    if(s.fi===undefined||s.fi<0||s.fi>=S.f.length)return false;
+    if(!S.f[s.fi])return false;
+    return sTotal(s)>0;
+  });
   // Filtre
   if(tri==='aenvoyer'){
     // Factures NON cochées "envoyé"
     ss=ss.filter(s=>!s.envoye);
   } else if(tri==='attente'){
-    // Factures avec au moins 1€ non payé
+    // En attente = 0 paiement OU paiement partiel
     ss=ss.filter(s=>{
       const parts=(S.py_parts||{})[s.num]||[];
       const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
-      return paid<sMontant(s)-0.01;
+      const total=sMontant(s);
+      return paid<total-0.01; // pas entièrement payé
     });
   } else if(tri==='paye'){
-    // Factures entièrement payées
+    // Payé = entièrement soldé via py_parts
     ss=ss.filter(s=>{
       const parts=(S.py_parts||{})[s.num]||[];
       const paid=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
-      return paid>=sMontant(s)-0.01;
+      return paid>0&&paid>=sMontant(s)-0.01;
     });
   }
   // Tri alphabétique
@@ -1093,10 +1099,14 @@ function rFact(){
     if(!f)return '';
     const tot=sMontant(s).toFixed(2);
     const interv=s.lignes&&s.lignes.length>1?s.lignes.map(l=>l.i).join(', '):s.i||'';
-    const py=S.py[s.num],paye=py&&py.st==='payé';
-    const partiel=py&&py.st==='partiel';
+    // Calculer statut depuis py_parts (source de vérité)
+    const _parts=(S.py_parts||{})[s.num]||[];
+    const _paid=_parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
+    const _total=sMontant(s);
+    const paye=_paid>=_total-0.01&&_paid>0;
+    const partiel=_paid>0&&_paid<_total-0.01;
     const badge=paye?'bvert':partiel?'bpartiel':'borg';
-    const label=paye?'payé':partiel?`partiel (${py.m2||''}€)`:'en attente';
+    const label=paye?'payé':partiel?'partiel ('+_paid.toFixed(0)+' €)':'en attente';
     const envoye=s.envoye||false;
     const numEscF=(s.num||'').replace(/'/g,"\'");
     return`<div class="fact-item" style="flex-direction:column;align-items:stretch;gap:8px;">

@@ -67,7 +67,7 @@ input:focus{outline:none;border-color:var(--vc);box-shadow:0 0 0 3px rgba(82,183
 .ftvide{color:var(--gris);font-weight:400;font-size:.83rem;}
 
 .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:.7rem;font-weight:700;}
-.bvert{background:#d8f3dc;color:#1b5e20;} .borg{background:#fff3e0;color:#e65100;} .bpartiel{background:#e0f2fe;color:#0369a1;}
+.bvert{background:#d8f3dc;color:#1b5e20;} .borg{background:#fff3e0;color:#e65100;} .bpartiel{background:#e0f2fe;color:#0369a1;} .benvoye{background:#ede9fe;color:#5b21b6;}
 
 .fact-item{background:#fff;border:1.5px solid var(--bord);border-radius:11px;padding:13px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:11px;}
 .fact-item:active{background:var(--vp);}
@@ -954,6 +954,25 @@ function modifierSaisie(fi,m,a){
   setTimeout(()=>openS(fi),150);
 }
 
+function toggleEnvoye(num,estEnvoye){
+  // Trouver la saisie par son numéro
+  let found=null;
+  for(const key of Object.keys(S.s)){
+    const s=S.s[key].find(s=>s.num===num);
+    if(s){found=s;break;}
+  }
+  if(!found)return;
+  if(estEnvoye){
+    if(!confirm('Confirmer l'annulation de l'envoi ?'))return;
+    snapshotS();
+    found.envoye=false;
+  } else {
+    snapshotS();
+    found.envoye=true;
+  }
+  save();rFact();
+}
+
 function supprimerFacture(fi,m,a){
   const f=S.f[fi];
   if(!f)return;
@@ -1027,13 +1046,20 @@ function rFact(){
     const partiel=py&&py.st==='partiel';
     const badge=paye?'bvert':partiel?'bpartiel':'borg';
     const label=paye?'payé':partiel?`partiel (${py.m2||''}€)`:'en attente';
+    const envoye=s.envoye||false;
+    const numEscF=(s.num||'').replace(/'/g,"\'");
     return`<div class="fact-item" style="flex-direction:column;align-items:stretch;gap:8px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="voirF(${s.fi},${m},${a})">
         <div class="fi-info"><div class="fi-nom">${f.n} ${f.p}</div><div class="fi-sub">${s.num||'—'} · ${interv} · ${sTotal(s)}h</div></div>
-        <div class="fi-right"><div class="fi-mnt">${tot} €</div><span class="badge ${badge}">${label}</span></div>
+        <div class="fi-right" style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;">
+          <div class="fi-mnt">${tot} €</div>
+          <span class="badge ${badge}">${label}</span>
+          ${envoye?`<span class="badge benvoye">✉️ Envoyé</span>`:''}
+        </div>
       </div>
-      <div style="display:flex;gap:7px;">
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
         <button class="btn bv bxs bsm" style="flex:1;" onclick="modifierSaisie(${s.fi},${m},${a})">✏️ Modifier</button>
+        <button class="btn bxs bsm" style="flex:1;background:${envoye?'#ede9fe':'#f5f3ff'};color:#5b21b6;border:1.5px solid #c4b5fd;" onclick="toggleEnvoye('${numEscF}',${envoye})">${envoye?'✉️ Annuler envoi':'✉️ Marquer envoyé'}</button>
         <button class="btn bd bxs bsm" style="flex:1;" onclick="supprimerFacture(${s.fi},${m},${a})">🗑 Supprimer</button>
       </div>
     </div>`;

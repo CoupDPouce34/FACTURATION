@@ -485,19 +485,37 @@ function showSync(msg,ok){
 }
 
 function fbSave(){
-  // RÈGLE ABSOLUE: localStorage est la source de vérité
+  // JSONBin = SOURCE DE VÉRITÉ UNIQUE
   if(!S.f||S.f.length===0){console.warn('fbSave bloqué: données vides');return;}
-  // 1. Sauvegarder en localStorage D'ABORD (synchrone, immédiat)
   const ts=Date.now();
-  S.ts=ts;
-  const payload=JSON.stringify({f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts});
-  localStorage.setItem('cdp3',payload);
-  localStorage.setItem('cdp3_ts',String(ts));
-  // 2. Pousser vers JSONBin (asynchrone, best-effort)
+  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts};
   showSync('🔄',false);
-  fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:payload})
-    .then(r=>r.ok?showSync('☁️',true):showSync('⚠️',false))
-    .catch(()=>showSync('📵',false));
+  // 1. Sauvegarder dans JSONBin EN PREMIER
+  fetch(JB_URL,{
+    method:'PUT',
+    headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
+    body:JSON.stringify(data)
+  })
+  .then(r=>{
+    if(r.ok){
+      // 2. JSONBin OK → mettre à jour le cache local
+      localStorage.setItem('cdp3',JSON.stringify(data));
+      localStorage.setItem('cdp3_ts',String(ts));
+      showSync('☁️',true);
+    } else {
+      showSync('⚠️ Erreur sauvegarde',false);
+      // Sauvegarder quand même en local comme backup
+      localStorage.setItem('cdp3',JSON.stringify(data));
+      localStorage.setItem('cdp3_ts',String(ts));
+    }
+  })
+  .catch(()=>{
+    // Hors ligne: sauvegarder localement, re-sync au prochain lancement
+    localStorage.setItem('cdp3',JSON.stringify(data));
+    localStorage.setItem('cdp3_ts',String(ts));
+    localStorage.setItem('cdp3_pending_sync','1');
+    showSync('📵 Hors ligne - sauvegardé localement',false);
+  });
 }
 
 function fbLoad(callback){

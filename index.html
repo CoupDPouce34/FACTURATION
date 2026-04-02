@@ -485,28 +485,26 @@ function showSync(msg,ok){
 }
 
 function fbSave(){
-  // Sécurité: ne pas écraser si S.f est vide (données corrompues)
-  if(!S.f||S.f.length===0){
-    console.warn('fbSave bloqué: S.f vide');
-    return;
-  }
-  showSync('🔄 Sync...',false);
-  const payload={f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},ts:Date.now()};
-  localStorage.setItem('cdp3',JSON.stringify(S));
-  localStorage.setItem('cdp3_ts',String(payload.ts));
-  fetch(JB_URL,{
-    method:'PUT',
-    headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
-    body:JSON.stringify({f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts:payload.ts})
-  }).then(r=>r.ok?showSync('☁️ Synchronisé',true):showSync('⚠️ Erreur sync',false))
-    .catch(()=>showSync('📵 Hors ligne',false));
+  // RÈGLE ABSOLUE: localStorage est la source de vérité
+  if(!S.f||S.f.length===0){console.warn('fbSave bloqué: données vides');return;}
+  // 1. Sauvegarder en localStorage D'ABORD (synchrone, immédiat)
+  const ts=Date.now();
+  S.ts=ts;
+  const payload=JSON.stringify({f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts});
+  localStorage.setItem('cdp3',payload);
+  localStorage.setItem('cdp3_ts',String(ts));
+  // 2. Pousser vers JSONBin (asynchrone, best-effort)
+  showSync('🔄',false);
+  fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:payload})
+    .then(r=>r.ok?showSync('☁️',true):showSync('⚠️',false))
+    .catch(()=>showSync('📵',false));
 }
 
 function fbLoad(callback){
   // 1. Afficher immédiatement depuis localStorage
   const sv=localStorage.getItem('cdp3');
   if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
-  if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
+  // Pas de fallback FI - localStorage est la seule source
   try{callback();}catch(e){console.error('local callback:',e);}
   // 2. Synchroniser en arrière-plan
   showSync('🔄 Sync...',false);
@@ -562,87 +560,7 @@ function selectInterv(selected=''){
   return `<option value="">-- Choisir --</option>${opts}`;
 }
 
-const FI=[
-  {n:"AMIANTO-FARIZON / DANNEL",p:"Marie Caroline",rue:"20 rue des calquières",cp:"34800",vil:"Clermont l'Hérault",e:"",tel:"",i:"Lauren",pr:30},
-  {n:"ALEXANDRE",p:"Julie",rue:"514 Chemin du Puisard",cp:"34230",vil:"Tressan",e:"",tel:"",i:"Christopher",pr:35},
-  {n:"ANZALONE",p:"Jessalyne",rue:"220 chemin du Plantier",cp:"34150",vil:"Sant Jean de Fos",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"BACOCCINA",p:"Clara",rue:"14 rue des cerisiers",cp:"34150",vil:"Aniane",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"BAUDET",p:"Valentin",rue:"42 grand rue",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"BENHARRAT",p:"Zhao",rue:"",cp:"",vil:"",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"BOUKLADA",p:"Inès",rue:"",cp:"34150",vil:"GIGNAC",e:"",tel:"",i:"Laura",pr:30},
-  {n:"BOUNEA",p:"Marlène",rue:"15 rue de l'occitanie",cp:"34725",vil:"St-André-de-Sangonis",e:"mariboune@icloud.com",tel:"06 20 41 77 59",i:"Mehret",pr:35},
-  {n:"BOYER",p:"Louka",rue:"6 chemin de verdasca",cp:"34150",vil:"GIGNAC",e:"bobbor8@hotmail.com",tel:"",i:"Laurent",pr:35},
-  {n:"BROSSARD",p:"Jade",rue:"2 chemin du Pioch",cp:"34230",vil:"Pouzols",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"CASTAN",p:"Emilie",rue:"Château Saint-Jean d'Aumières",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"CASTAN",p:"Zoé",rue:"Château Saint Jean d'Aumières",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"CAUSSE - GUSMAROLI",p:"Emmy",rue:"4 impasse du Grenache",cp:"34150",vil:"Saint Jean de Fos",e:"gusmaroli.lydie@gmail.com",tel:"",i:"Cyprien",pr:35},
-  {n:"CHAVES",p:"Clarisse",rue:"18 rue du hameau des vignes",cp:"34150",vil:"La Boissière",e:"cdusfour@yahoo.com",tel:"",i:"Mehret",pr:35},
-  {n:"CHARTON",p:"Naël",rue:"1 rue des prisons",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"CHOMEL",p:"Delphine",rue:"13 avenue du Mas de Carles",cp:"34800",vil:"OCTON",e:"",tel:"",i:"Wendy",pr:35},
-  {n:"CONSTANS (Lauren)",p:"Antoine",rue:"3 rue des Genets",cp:"34230",vil:"Puilacher",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"CONSTANS (Denis)",p:"Antoine",rue:"3 rue des Genets",cp:"34230",vil:"Puilacher",e:"mathilde.chalimbaud@gmail.com",tel:"",i:"Denis",pr:35},
-  {n:"COSSARD - LASSALVY",p:"Nadège",rue:"678 chemin de la barque",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"CUESTA",p:"Nicolas",rue:"2 Impasse Bel Horizon",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Christine",pr:35},
-  {n:"D'ANGELO (Mairi)",p:"Marc",rue:"25 rue des lauzes",cp:"34230",vil:"POUZOLS",e:"dolcevita34230@hotmail.fr",tel:"",i:"Mairi",pr:35},
-  {n:"D'ANGELO (Laurent)",p:"Marc",rue:"25 rue des lauzes",cp:"34230",vil:"POUZOLS",e:"dolcevita34230@hotmail.fr",tel:"",i:"Laurent",pr:35},
-  {n:"D'ANGELO (Mehret)",p:"Marc",rue:"25 rue des lauzes",cp:"34230",vil:"POUZOLS",e:"dolcevita34230@hotmail.fr",tel:"",i:"Mehret",pr:35},
-  {n:"DENAIS",p:"Stéphanie",rue:"110 chemin de La Croix vieille",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laura",pr:30},
-  {n:"Descloux",p:"Léo",rue:"23 bis lot. Armavielhe",cp:"34150",vil:"Aniane",e:"",tel:"",i:"Wendy",pr:35},
-  {n:"EL MAHI",p:"Yanis",rue:"43 chemin des visles",cp:"34230",vil:"Puilacher",e:"azizelmahi02@gmail.com",tel:"",i:"Laurent",pr:35},
-  {n:"Erkes-Gohorry",p:"",rue:"36 rue foyer d'oc",cp:"34150",vil:"Gignac",e:"",tel:"06 60 99 38 34",i:"Mairi",pr:35},
-  {n:"GAUTHIER",p:"",rue:"2 rue de barris",cp:"34230",vil:"Tressan",e:"",tel:"",i:"Lauren",pr:30},
-  {n:"GARNIER",p:"Jade",rue:"19 Route de Saint Félix",cp:"34725",vil:"Saint Guiraud",e:"jagarnier@live.fr",tel:"",i:"Tom",pr:35},
-  {n:"GHZIEL",p:"Johaïna",rue:"5 rue Marcel Pagnol",cp:"34150",vil:"GIGNAC",e:"",tel:"",i:"Denis",pr:35},
-  {n:"GIRARD",p:"Karine",rue:"4 av du maréchal Foch",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"HATT",p:"",rue:"12 Grande Rue",cp:"34700",vil:"St Jean de la Blaquière",e:"",tel:"",i:"Christine",pr:35},
-  {n:"HORVILLE",p:"Axel",rue:"40 rue foyer d'Oc",cp:"34150",vil:"Gignac",e:"",tel:"06 09 13 50 47",i:"Cyprien",pr:35},
-  {n:"Jeanjean - Horcajuelo",p:"Fanny",rue:"10 rue de la place",cp:"34230",vil:"Vendémian",e:"",tel:"",i:"Wendy",pr:35},
-  {n:"JULLIEN",p:"Garance",rue:"",cp:"34150",vil:"GIGNAC",e:"",tel:"",i:"Laura",pr:30},
-  {n:"LAFON LAMBINO",p:"Aihnoa",rue:"7 boulevard Saint Louis",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"LANTEAUME",p:"Esteban",rue:"9 route de Montpellier",cp:"34150",vil:"Puéchabon",e:"",tel:"06 87 86 82 36",i:"Cyprien",pr:35},
-  {n:"LECA-CHAUSSE",p:"Arthur",rue:"190 Avenue des Pins",cp:"34150",vil:"GIGNAC",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"LE HIR",p:"Cécile",rue:"163 Rue du Couvent",cp:"34725",vil:"St-André-de Sangonis",e:"",tel:"",i:"Tom",pr:35},
-  {n:"LOUREIRO",p:"Manon",rue:"177 Chemin de Pioch Courbi",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"MANCHA (Céline)",p:"Maxime",rue:"205 rue de la saunerie",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Céline",pr:35},
-  {n:"MANCHA (Mairi)",p:"Maxime",rue:"205 rue de la saunerie",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Mairi",pr:35},
-  {n:"MASSOL-MONDINO",p:"Gabriel",rue:"89 chemin du four des oules",cp:"34150",vil:"Saint-Jean de Fos",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"MURARA",p:"Liséa",rue:"28 avenue Jean Rouaud",cp:"34800",vil:"Clermont l'Hérault",e:"alex.natha@yahoo.fr",tel:"",i:"Cyprien",pr:35},
-  {n:"MURARA",p:"Samuel",rue:"28 avenue Jean Rouaud",cp:"34800",vil:"Clermont l'Hérault",e:"alex.natha@yahoo.fr",tel:"",i:"Céline",pr:35},
-  {n:"NEDJARI (Laurent)",p:"Jade",rue:"4 rue Santoro",cp:"34150",vil:"Gignac",e:"f.nedjari@hotmail.com",tel:"",i:"Laurent",pr:35},
-  {n:"NEDJARI (Mehret)",p:"Jade",rue:"4 rue Santoro",cp:"34150",vil:"Gignac",e:"",tel:"06 65 15 00 95",i:"Mehret",pr:35},
-  {n:"OUSSAA",p:"Houda",rue:"980 boulevard du moulin",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"OUYCHOU (Mairi)",p:"Jibril & Amira",rue:"108 chemin de la barque",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Mairi",pr:35},
-  {n:"OUYCHOU (Céline)",p:"Jibril & Amira",rue:"108 chemin de la barque",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Céline",pr:35},
-  {n:"PAGÈS (Laurent)",p:"Thomas",rue:"7 place Alsace",cp:"34700",vil:"Lodève",e:"patrice220477@gmail.com",tel:"",i:"Laurent",pr:35},
-  {n:"PAGÈS (Mehret)",p:"Thomas",rue:"7 place Alsace",cp:"34700",vil:"Lodève",e:"patrice220477@gmail.com",tel:"",i:"Mehret",pr:35},
-  {n:"PARRIAUD",p:"Vincent",rue:"mas de Bonniol",cp:"34150",vil:"La Boissière",e:"vparriaud@gmail.com",tel:"",i:"Céline",pr:35},
-  {n:"PASTOR",p:"Emmanuel",rue:"111 chemin du camp d'Aussel",cp:"34230",vil:"Tressan",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"Pellisier",p:"Léa",rue:"990 bd du Moulin",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Wendy",pr:35},
-  {n:"PINOT (Denis)",p:"Cidrolin",rue:"2 Mas de Fabrea",cp:"34230",vil:"Aumelas",e:"maudgiraud@hotmail.com",tel:"",i:"Denis",pr:35},
-  {n:"PINOT (Mehret)",p:"Pomme",rue:"2 Mas de Fabrea",cp:"34230",vil:"Aumelas",e:"maudgiraud@hotmail.com",tel:"",i:"Mehret",pr:35},
-  {n:"PINOT (Laurent)",p:"Pomme",rue:"2 Mas de Fabre",cp:"34230",vil:"Aumelas",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"POUJOL - MATHEZ",p:"Laure",rue:"2 rue de la barris",cp:"34230",vil:"Tressan",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"REGLAIN",p:"Mathilde",rue:"",cp:"",vil:"",e:"",tel:"",i:"Tom",pr:35},
-  {n:"RODRIGUEZ",p:"Éloïse",rue:"3 chemin des horts",cp:"34150",vil:"Aniane",e:"caroline.rodriguez34@gmail.com",tel:"",i:"Laurent",pr:35},
-  {n:"ROQUES",p:"Damien",rue:"305 impasse du mourvèdre",cp:"34150",vil:"Saint-Jean de Fos",e:"",tel:"",i:"Tom",pr:35},
-  {n:"ROQUES",p:"Nino",rue:"305 impasse du mourvèdre",cp:"34150",vil:"Saint-Jean de Fos",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"ROURE",p:"Nina",rue:"8 rue des marguerites",cp:"34725",vil:"Saint André de Sangonis",e:"julielaville1@gmail.com",tel:"",i:"Mehret",pr:35},
-  {n:"SAFI",p:"Anne-Laure",rue:"Mas Rouge, Route de Gignac",cp:"34150",vil:"Gignac",e:"alauresafi6@gmail.com",tel:"",i:"Céline",pr:35},
-  {n:"SIMARD - LANDRY (Cyprien)",p:"Juliette",rue:"16 rue colonel servent",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Cyprien",pr:35},
-  {n:"SIMARD - LANDRY (Wendy)",p:"Juliette",rue:"16 rue colonel servent",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Wendy",pr:35},
-  {n:"SPINA (Laurent/Mylan)",p:"Mylan",rue:"200 chemin de l'île",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"SPINA (Mehret/Mylan)",p:"Mylan",rue:"200 chemin de l'île",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Mehret",pr:35},
-  {n:"SPINA (Laurent/Kais)",p:"Kais",rue:"200 chemin de l'île",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"SPINA (Mehret/Kais)",p:"Kais",rue:"200 chemin de l'île",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Mehret",pr:35},
-  {n:"TORQUEBIAU",p:"Alexandra",rue:"Lieu dit du Mas de Ratte",cp:"34150",vil:"Gignac",e:"at@lhermas.com",tel:"",i:"Mehret",pr:35},
-  {n:"TRAVAIL",p:"Loan",rue:"329 rue Philippe Chapert",cp:"34150",vil:"Gignac",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"VERDOUCQ - PONSADA",p:"Maxime",rue:"35 rue Maximilien de Robespierre",cp:"34725",vil:"Saint-André-de-Sangonis",e:"ponsada.v@hotmail.fr",tel:"",i:"Laurent",pr:35},
-  {n:"VEAU - LEJOSNE",p:"Astrid",rue:"12 ch des moulières",cp:"34150",vil:"La Boissière",e:"",tel:"",i:"Lauren",pr:35},
-  {n:"VENDITII",p:"Suria",rue:"7 place Alsace",cp:"34700",vil:"Lodève",e:"eva.marion0820@laposte.net",tel:"",i:"Cyprien",pr:35},
-  {n:"WATTRELOT",p:"Maéline",rue:"207 chemin de la laiterie",cp:"30770",vil:"Alzon",e:"",tel:"",i:"Laura",pr:35},
-  {n:"ZIMMERMANN",p:"Lily-Marlène",rue:"140 rue de l'Aire",cp:"34150",vil:"Saint Jean de Fos",e:"",tel:"",i:"Laurent",pr:35},
-  {n:"PASSET",p:"Catherine",rue:"471 route d'aubaygues",cp:"34700",vil:"SOUBES",e:"",tel:"06 43 22 44 46",i:"Denis",pr:35},
-];
+const FI=[]; // Liste vide - données chargées depuis localStorage
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{}};
 let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
@@ -739,32 +657,55 @@ function init(){
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
-  // Charger depuis localStorage immédiatement
+  // RÈGLE ABSOLUE: localStorage est LA source de vérité
+  // JSONBin sert UNIQUEMENT de sauvegarde distante pour le trésorier
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
-  if(!S.f||!S.f.length)S.f=JSON.parse(JSON.stringify(FI));
-  rSaisie();
-  // Synchroniser avec JSONBin en arrière-plan
-  showSync('🔄 Sync...',false);
+  if(sv)try{
+    const p=JSON.parse(sv);
+    S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};
+    S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};
+  }catch(e){console.error('Erreur localStorage:',e);}
+  // Si localStorage vide (premier lancement), utiliser FI par défaut
+  // S.f reste vide si localStorage vide - pas de fallback sur FI
+  // Afficher immédiatement
+  rFact();
+  // Vérifier JSONBin en arrière-plan UNIQUEMENT pour savoir si le trésorier 
+  // a fait des modifications depuis son appareil (Safari)
+  showSync('🔄',false);
+  const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
   fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
     .then(r=>r.json())
     .then(res=>{
       const remote=res.record||{};
-      if(remote&&remote.f&&remote.f.length){
-        const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
-        const remoteTs=remote.ts||0;
-        if(remoteTs>localTs){
-          S.f=remote.f;S.s=remote.s||{};
-          S.py={...(S.py||{}),...(remote.py||{})};S.py_parts={...(S.py_parts||{}),...(remote.py_parts||{})};
-          S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
-          localStorage.setItem('cdp3',JSON.stringify(S));
-          localStorage.setItem('cdp3_ts',String(remoteTs));
-          rSaisie();
+      const remoteTs=remote.ts||0;
+      if(remote&&remote.f&&remote.f.length&&remoteTs>localTs){
+        // JSONBin plus récent = modifications du trésorier depuis Safari
+        // Afficher une notification, NE PAS écraser automatiquement
+        showSync('🔔 MAJ disponible',false);
+        const syncBtn=document.getElementById('sync-indicator');
+        if(syncBtn){
+          syncBtn.style.cursor='pointer';
+          syncBtn.title='Cliquer pour charger les modifications du trésorier';
+          syncBtn.onclick=()=>{
+            const dateStr=new Date(remoteTs).toLocaleDateString('fr-FR');
+            if(confirm('Des modifications faites depuis un autre appareil ('+dateStr+'). Charger ces modifications ?')){
+              S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
+              S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
+              localStorage.setItem('cdp3',JSON.stringify(S));
+              localStorage.setItem('cdp3_ts',String(remoteTs));
+              rFact();showSync('☁️',true);syncBtn.onclick=null;
+            }
+          };
         }
-        showSync('☁️ Synchronisé',true);
-      } else {showSync('☁️ Synchronisé',true);fbSave();}
+      } else if(!remote||!remote.f||!remote.f.length){
+        // JSONBin vide: pousser les données locales
+        fbSave();
+        showSync('☁️',true);
+      } else {
+        showSync('☁️',true);
+      }
     })
-    .catch(()=>showSync('📵 Hors ligne',true));
+    .catch(()=>showSync('📵',true));
 }
 function save(){fbSave();}
 
@@ -2067,13 +2008,27 @@ function impData(event){
   const reader=new FileReader();
   reader.onload=e=>{try{snapshotS();
     const d=JSON.parse(e.target.result);
+    // Format localStorage_backup (clés cdp3, cdp3_cfg)
+    if(d.cdp3){
+      const inner=JSON.parse(d.cdp3);
+      S.f=inner.f||[];S.s=inner.s||{};S.py=inner.py||{};
+      S.py_parts=inner.py_parts||{};S.pyp=inner.pyp||{};S.pyp_parts=inner.pyp_parts||{};
+      if(d.cdp3_cfg){CFG={...CFG_DEF,...JSON.parse(d.cdp3_cfg)};localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));}
+      const ts=d.cdp3_ts?parseInt(d.cdp3_ts):Date.now();
+      localStorage.setItem('cdp3',d.cdp3);
+      localStorage.setItem('cdp3_ts',String(ts));
+      S.ts=ts;
+      save();rReglages();rFact();alert('✅ Données localStorage restaurées ! ('+S.f.length+' familles, '+Object.keys(S.s).length+' mois)');
+      return;
+    }
+    // Format export standard (familles, saisies, paiements)
     if(d.familles)S.f=d.familles;
     if(d.saisies)S.s=d.saisies;
     if(d.paiements)S.py=d.paiements;
     if(d.cfg){CFG={...CFG_DEF,...d.cfg};localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));}
     if(d.codes){CODES={...CODES_DEF,...d.codes};localStorage.setItem('cdp3_codes',JSON.stringify(CODES));}
     save();rReglages();rFact();alert('✅ Données importées avec succès !');
-  }catch(err){alert('Erreur lors de l\'import. Vérifie le fichier.');}};
+  }catch(err){console.error(err);alert('Erreur lors de l\'import: '+err.message);}};
   reader.readAsText(file);
 }
 

@@ -293,7 +293,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <button class="btn bv bfull bsm" onclick="saveCFG()">💾 Sauvegarder les infos</button>
     </div>
     <div class="card">
-      <div class="ctitle">👤 Codes intervenants</div>
+      <div class="ctitle">👨‍🏫 Profs</div>
       <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Ces codes apparaissaient dans les anciens numéros de facture. Ils sont conservés pour référence.<br>Touchez une ligne pour modifier.</div>
       <div id="codes-list"></div>
       <button class="btn bo bfull bsm" onclick="addCode()" style="margin-top:8px;">➕ Ajouter un prof</button>
@@ -348,8 +348,8 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="msheet">
     <div class="mhandle"></div>
     <div class="mtitle" id="m-code-titre">Intervenant</div>
-    <div class="field"><label class="sl">Prénom de l'intervenant</label><input type="text" id="mc-nom" placeholder="ex: Laurent"></div>
-    <div class="field"><label class="sl">Code (2 à 4 lettres)</label><input type="text" id="mc-code" placeholder="ex: LB" maxlength="4" style="text-transform:uppercase;"></div>
+    <div class="field"><label class="sl">Nom du prof</label><input type="text" id="mc-nom" placeholder="ex: Laurent"></div>
+    <input type="hidden" id="mc-code">
     <input type="hidden" id="mc-old">
     <div class="mbtns">
       <button class="btn bv" onclick="valCode()">💾 Sauvegarder</button>
@@ -488,7 +488,7 @@ function fbSave(){
   // JSONBin = SOURCE DE VÉRITÉ UNIQUE
   if(!S.f||S.f.length===0){console.warn('fbSave bloqué: données vides');return;}
   const ts=Date.now();
-  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},ts};
+  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts};
   showSync('🔄',false);
   // 1. Sauvegarder dans JSONBin EN PREMIER
   fetch(JB_URL,{
@@ -580,7 +580,7 @@ function selectInterv(selected=''){
 
 const FI=[]; // Liste vide - données chargées depuis localStorage
 
-let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{}};
+let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{},codes:null,cfg:null};
 let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
 // ── SYSTÈME UNDO ──
 let undoStack=[];
@@ -1097,9 +1097,12 @@ function rFact(){
       </div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;">
         <button class="btn bv bxs bsm" style="flex:1;" onclick="modifierSaisie(${s.fi},${m},${a})">✏️ Modifier</button>
-        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:.82rem;font-weight:700;color:#5b21b6;" onclick="toggleEnvoye('${numEscF}',${envoye})">
-          <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #7c3aed;border-radius:4px;background:${envoye?'#7c3aed':'#fff'};flex-shrink:0;">${envoye?'<span style=\'color:#fff;font-size:.75rem;line-height:1;\'>✓</span>':''}</span>
-          Envoyé
+        <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:.82rem;font-weight:700;color:#5b21b6;flex-direction:column;" onclick="toggleEnvoye('${numEscF}',${envoye})">
+          <div style="display:flex;align-items:center;gap:7px;">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #7c3aed;border-radius:4px;background:${envoye?'#7c3aed':'#fff'};flex-shrink:0;">${envoye?'<span style=\'color:#fff;font-size:.75rem;line-height:1;\'>✓</span>':''}</span>
+            Envoyé
+          </div>
+          ${envoye&&s.envoyeDate?`<span style="font-size:.65rem;font-weight:400;color:#7c3aed;">${new Date(s.envoyeDate+'T00:00:00').toLocaleDateString('fr-FR')}</span>`:''}
         </label>
         <button class="btn bd bxs bsm" style="flex:1;" onclick="supprimerFacture(${s.fi},${m},${a})">🗑 Supprimer</button>
       </div>
@@ -1958,18 +1961,19 @@ function saveCFG(){snapshotS();
   CFG.prixFamille=parseFloat(document.getElementById('cfg-prix-famille').value)||35;
   CFG.prixProf=parseFloat(document.getElementById('cfg-prix-prof').value)||28;
   localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));
+  save(); // Sauvegarder dans JSONBin
   alert('✅ Informations sauvegardées !');
 }
 function rCodes(){
   const c=document.getElementById('codes-list');
   c.innerHTML=Object.entries(CODES).map(([nom,code])=>`
     <div class="fli" onclick="editCode('${nom}')">
-      <div style="flex:1;"><span style="font-weight:700;">${nom}</span> <span style="color:var(--gris);font-size:.82rem;">→ code : <strong>${code}</strong></span></div>
+      <div style="flex:1;"><span style="font-weight:700;">${nom}</span></div>
       <span style="font-size:1.1rem;color:var(--gris);">›</span>
     </div>`).join('');
 }
 function addCode(){
-  document.getElementById('m-code-titre').textContent='Ajouter un intervenant';
+  document.getElementById('m-code-titre').textContent='Ajouter un prof';
   document.getElementById('mc-nom').value='';
   document.getElementById('mc-code').value='';
   document.getElementById('mc-old').value='';
@@ -1979,19 +1983,20 @@ function addCode(){
 function editCode(nom){
   document.getElementById('m-code-titre').textContent='Modifier '+nom;
   document.getElementById('mc-nom').value=nom;
-  document.getElementById('mc-code').value=CODES[nom]||'';
   document.getElementById('mc-old').value=nom;
   document.getElementById('mc-del').style.display='block';
   document.getElementById('m-code').classList.add('open');
 }
 function valCode(){snapshotS();
   const nom=document.getElementById('mc-nom').value.trim();
-  const code=document.getElementById('mc-code').value.trim().toUpperCase();
   const old=document.getElementById('mc-old').value;
-  if(!nom||!code){alert('Remplis les deux champs.');return;}
+  if(!nom){alert('Saisis le nom du prof.');return;}
+  // Générer code auto: 2 premières lettres en majuscules
+  const code=(nom.substring(0,2)).toUpperCase();
   if(old&&old!==nom)delete CODES[old];
   CODES[nom]=code;
   localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
+  save(); // Sauvegarder dans JSONBin
   cm('m-code');rCodes();
 }
 function delCode(){snapshotS();
@@ -1999,6 +2004,7 @@ function delCode(){snapshotS();
   if(!confirm('Supprimer '+old+' ?'))return;
   delete CODES[old];
   localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
+  save(); // Sauvegarder dans JSONBin
   cm('m-code');rCodes();
 }
 function expLocalStorage(){

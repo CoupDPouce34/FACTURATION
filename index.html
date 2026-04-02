@@ -302,6 +302,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <div class="ctitle">💾 Sauvegarde</div>
       <div style="font-size:.8rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Exporte toutes tes données pour les sauvegarder ou les transférer sur un autre appareil.</div>
       <button class="btn bv bfull bsm" onclick="expData()">📤 Exporter toutes les données</button>
+      <button class="btn bv bfull bsm" style="background:#059669;margin-top:6px;" onclick="expLocalStorage()">🆘 Exporter localStorage (urgence)</button>
       <button class="btn bo bfull bsm" onclick="document.getElementById('imp-file').click()">📂 Importer des données</button>
       <input type="file" id="imp-file" accept=".json" style="display:none" onchange="impData(event)">
     </div>
@@ -484,6 +485,11 @@ function showSync(msg,ok){
 }
 
 function fbSave(){
+  // Sécurité: ne pas écraser si S.f est vide (données corrompues)
+  if(!S.f||S.f.length===0){
+    console.warn('fbSave bloqué: S.f vide');
+    return;
+  }
   showSync('🔄 Sync...',false);
   const payload={f:S.f,s:S.s,py:S.py,pyp:S.pyp||{},ts:Date.now()};
   localStorage.setItem('cdp3',JSON.stringify(S));
@@ -2036,6 +2042,20 @@ function delCode(){snapshotS();
   localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
   cm('m-code');rCodes();
 }
+function expLocalStorage(){
+  // Export brut du localStorage - contient les vraies données
+  const data={};
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    data[k]=localStorage.getItem(k);
+  }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='localStorage_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  alert('✅ localStorage exporté ! Envoie ce fichier à Laurent pour restaurer les données.');
+}
+
 function expData(){
   const data={familles:S.f,saisies:S.s,paiements:S.py,cfg:CFG,codes:CODES};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});

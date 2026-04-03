@@ -518,6 +518,27 @@ function fbSave(){
   });
 }
 
+function applyRemote(remote){
+  if(!remote||!remote.f||!remote.f.length)return;
+  S.f=remote.f;
+  S.s=remote.s||{};
+  S.py=remote.py||{};
+  S.py_parts=remote.py_parts||{};
+  S.pyp=remote.pyp||{};
+  S.pyp_parts=remote.pyp_parts||{};
+  if(remote.codes&&Object.keys(remote.codes).length>0){
+    CODES=remote.codes;
+    localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
+  }
+  if(remote.cfg&&remote.cfg.nom){
+    CFG={...CFG_DEF,...remote.cfg};
+    localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));
+  }
+  const cache={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts,pyp:S.pyp,pyp_parts:S.pyp_parts,codes:CODES,cfg:CFG,ts:remote.ts||Date.now()};
+  localStorage.setItem('cdp3',JSON.stringify(cache));
+  localStorage.setItem('cdp3_ts',String(cache.ts));
+}
+
 function fbLoad(callback){
   // Charger cache local pour affichage immédiat
   const sv=localStorage.getItem('cdp3');
@@ -544,28 +565,6 @@ function fbLoad(callback){
     .catch(()=>showSync('📵',true));
 }
 
-function applyRemote(remote){
-  S.f=remote.f||S.f;
-  S.s=remote.s||{};
-  S.py=remote.py||{};
-  S.py_parts=remote.py_parts||{};
-  S.pyp=remote.pyp||{};
-  S.pyp_parts=remote.pyp_parts||{};
-  // Restaurer CODES depuis JSONBin
-  if(remote.codes&&Object.keys(remote.codes).length>0){
-    CODES=remote.codes;
-    localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
-  }
-  // Restaurer CFG depuis JSONBin
-  if(remote.cfg&&remote.cfg.nom){
-    CFG={...CFG_DEF,...remote.cfg};
-    localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));
-  }
-  // Mettre à jour le cache local complet
-  const cacheData={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts,pyp:S.pyp,pyp_parts:S.pyp_parts,codes:CODES,cfg:CFG,ts:remote.ts||Date.now()};
-  localStorage.setItem('cdp3',JSON.stringify(cacheData));
-  localStorage.setItem('cdp3_ts',String(remote.ts||Date.now()));
-}
 // Helper: build address string from family object
 function fmtAdr(f){
   const rue=f.rue||f.a||'';
@@ -597,6 +596,7 @@ function selectInterv(selected=''){
 const FI=[]; // Liste vide - données chargées depuis localStorage
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{},codes:null,cfg:null};
+
 let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
 // ── SYSTÈME UNDO ──
 let undoStack=[];

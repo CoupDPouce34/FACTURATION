@@ -556,9 +556,9 @@ function fbLoad(callback){
     .then(res=>{
       const remote=res.record||{};
       if(remote&&remote.f&&remote.f.length){
-        const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
-        const remoteTs=remote.ts||0;
-        if(remoteTs>localTs){applyRemote(remote);try{callback();}catch(e){}}
+        // Toujours appliquer JSONBin (source de vérité)
+        applyRemote(remote);
+        try{callback();}catch(e){console.error(e);}
         showSync('☁️',true);
       } else if(S.f&&S.f.length>0){fbSave();}
     })
@@ -695,55 +695,42 @@ function init(){
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
-  // RÈGLE ABSOLUE: localStorage est LA source de vérité
-  // JSONBin sert UNIQUEMENT de sauvegarde distante pour le trésorier
+  // ── CHARGEMENT : JSONBin = source de vérité ──
+  showSync('🔄',false);
+
+  // 1. Afficher le cache local immédiatement (pour ne pas bloquer l'UI)
   const sv=localStorage.getItem('cdp3');
   if(sv)try{
     const p=JSON.parse(sv);
     S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};
     S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};
-  }catch(e){console.error('Erreur localStorage:',e);}
-  // Si localStorage vide (premier lancement), utiliser FI par défaut
-  // S.f reste vide si localStorage vide - pas de fallback sur FI
-  // Afficher immédiatement
-  rFact();
-  // Vérifier JSONBin en arrière-plan UNIQUEMENT pour savoir si le trésorier 
-  // a fait des modifications depuis son appareil (Safari)
-  showSync('🔄',false);
-  const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
+    if(p.codes&&Object.keys(p.codes).length>0)CODES=p.codes;
+    if(p.cfg&&p.cfg.nom)CFG={...CFG_DEF,...p.cfg};
+  }catch(e){}
+  if(S.f.length>0)rFact();
+
+  // 2. Charger depuis JSONBin (toujours, pour tous les utilisateurs)
   fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
     .then(r=>r.json())
     .then(res=>{
       const remote=res.record||{};
-      const remoteTs=remote.ts||0;
-      if(remote&&remote.f&&remote.f.length&&remoteTs>localTs){
-        // JSONBin plus récent = modifications du trésorier depuis Safari
-        // Afficher une notification, NE PAS écraser automatiquement
-        showSync('🔔 MAJ disponible',false);
-        const syncBtn=document.getElementById('sync-indicator');
-        if(syncBtn){
-          syncBtn.style.cursor='pointer';
-          syncBtn.title='Cliquer pour charger les modifications du trésorier';
-          syncBtn.onclick=()=>{
-            const dateStr=new Date(remoteTs).toLocaleDateString('fr-FR');
-            if(confirm('Des modifications faites depuis un autre appareil ('+dateStr+'). Charger ces modifications ?')){
-              S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
-              S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
-              localStorage.setItem('cdp3',JSON.stringify(S));
-              localStorage.setItem('cdp3_ts',String(remoteTs));
-              rFact();showSync('☁️',true);syncBtn.onclick=null;
-            }
-          };
-        }
-      } else if(!remote||!remote.f||!remote.f.length){
-        // JSONBin vide: pousser les données locales
-        fbSave();
+      if(remote&&remote.f&&remote.f.length){
+        // Appliquer les données JSONBin (codes, cfg, familles, etc.)
+        applyRemote(remote);
+        rFact();
+        // Si on est dans les réglages, les rafraîchir aussi
+        if(document.getElementById('pg-reglages').classList.contains('active'))rReglages();
         showSync('☁️',true);
       } else {
+        // JSONBin vide → pousser les données locales
+        if(S.f&&S.f.length>0)fbSave();
         showSync('☁️',true);
       }
     })
-    .catch(()=>showSync('📵',true));
+    .catch(()=>{
+      showSync('📵',true);
+    });
+  updateUndoBtn();
 }
 function save(){fbSave();}
 

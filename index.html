@@ -397,7 +397,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="field"><label class="sl">Date du paiement</label><input type="date" id="pyp-d"></div>
     <div class="field"><label class="sl">Moyen de paiement</label>
       <select id="pyp-m" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;">
-        <option>Virement</option><option>Chèque</option><option>Espèces</option>
+        <option>Virement</option><option>Chèque</option><option>Espèces</option><option>CESU</option>
       </select>
     </div>
     <div class="mbtns">
@@ -417,7 +417,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="field"><label class="sl">Date du paiement</label><input type="date" id="py-d"></div>
     <div class="field"><label class="sl">Moyen de paiement</label>
       <select id="py-m" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;">
-        <option>Virement</option><option>Chèque</option><option>Espèces</option>
+        <option>Virement</option><option>Chèque</option><option>Espèces</option><option>CESU</option>
       </select>
     </div>
     <div class="mbtns">
@@ -1750,13 +1750,36 @@ function delFam(){snapshotS();
 // ── ATTESTATION FISCALE ──
 let curAttestIdx=null;
 
+function calcCesuAuto(){
+  // Calculer automatiquement le total CESU depuis les paiements py_parts
+  const annee=parseInt(document.getElementById('at-annee').value);
+  const idx=curAttestIdx;
+  if(idx===null||idx===undefined)return;
+  const nomFamille=S.f[idx]?.n;
+  const idxFraterie=S.f.map((ff,i)=>ff.n===nomFamille?i:-1).filter(i=>i>=0);
+  let totalCesu=0;
+  idxFraterie.forEach(fi=>{
+    for(let m=1;m<=12;m++){
+      const key=m+'_'+annee;
+      const s=(S.s[key]||[]).find(s=>s.fi===fi);
+      if(!s||!sTotal(s))continue;
+      const parts=(S.py_parts||{})[s.num]||[];
+      parts.forEach(p=>{
+        if(p.m==='CESU')totalCesu+=parseFloat(p.montant||0);
+      });
+    }
+  });
+  document.getElementById('at-cesu').value=totalCesu.toFixed(2);
+  calcAttestation();
+}
+
 function ouvrirAttestation(idx){
   curAttestIdx=idx;
   const f=S.f[idx];
   const adrAttest=fmtAdr(S.f[idx]).join(', ');
   document.getElementById('attest-famille-info').innerHTML=`📋 ${S.f[idx].n} ${S.f[idx].p}${adrAttest?'<br><span style="font-weight:400;font-size:.78rem;color:var(--gris);">'+adrAttest+'</span>':''}`;
-  document.getElementById('at-annee').onchange=calcAttestation;
-  document.getElementById('at-cesu').value=0;
+  document.getElementById('at-annee').onchange=()=>{calcAttestation();calcCesuAuto();};
+  calcCesuAuto();
   const btnMail=document.getElementById('btn-attest-mail');
   if(btnMail)btnMail.style.display=f.e?'block':'none';
   calcAttestation();

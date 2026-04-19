@@ -308,9 +308,17 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     </div>
   </div>
 
-  <!-- PAGE ATTESTATION -->
+  <!-- PAGE ATTESTATIONS (liste) -->
+  <div class="page" id="pg-attestations">
+    <div class="mbar" style="margin-bottom:12px;">
+      <select id="atl-annee" onchange="rAttestations()" style="width:100%;"></select>
+    </div>
+    <div id="atl-list"></div>
+  </div>
+
+  <!-- PAGE ATTESTATION (detail) -->
   <div class="page" id="pg-attestation">
-    <button class="btn bo bsm" onclick="showPage('familles')" style="margin-bottom:11px;">← Retour aux familles</button>
+    <button class="btn bo bsm" onclick="showPage('attestations')" style="margin-bottom:11px;">← Retour</button>
     <div class="card">
       <div class="ctitle">📜 Attestation fiscale annuelle</div>
       <div id="attest-famille-info" style="font-size:.88rem;font-weight:700;color:var(--txt);margin-bottom:14px;padding:10px 12px;background:var(--vp);border-radius:9px;"></div>
@@ -341,6 +349,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <button onclick="showPage('suivi',this)"><span class="i">💰</span>Paiements</button>
   <button onclick="showPage('profs',this)"><span class="i">👨‍🏫</span>Profs</button>
   <button onclick="showPage('familles',this)"><span class="i">👨‍👩‍👧</span>Familles</button>
+  <button onclick="showPage('attestations',this)"><span class="i">📜</span>Attestations</button>
 </nav>
 
 <!-- MODAL CODE INTERVENANT -->
@@ -397,7 +406,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="field"><label class="sl">Date du paiement</label><input type="date" id="pyp-d"></div>
     <div class="field"><label class="sl">Moyen de paiement</label>
       <select id="pyp-m" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;">
-        <option>Virement</option><option>Chèque</option><option>Espèces</option><option>CESU</option>
+        <option>Virement</option><option>Chèque</option><option>Espèces</option>
       </select>
     </div>
     <div class="mbtns">
@@ -417,7 +426,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="field"><label class="sl">Date du paiement</label><input type="date" id="py-d"></div>
     <div class="field"><label class="sl">Moyen de paiement</label>
       <select id="py-m" style="width:100%;padding:11px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;background:#fff;-webkit-appearance:none;">
-        <option>Virement</option><option>Chèque</option><option>Espèces</option><option>CESU</option>
+        <option>Virement</option><option>Chèque</option><option>Espèces</option>
       </select>
     </div>
     <div class="mbtns">
@@ -518,51 +527,36 @@ function fbSave(){
   });
 }
 
-function applyRemote(remote){
-  if(!remote||!remote.f||!remote.f.length)return;
-  S.f=remote.f;
-  S.s=remote.s||{};
-  S.py=remote.py||{};
-  S.py_parts=remote.py_parts||{};
-  S.pyp=remote.pyp||{};
-  S.pyp_parts=remote.pyp_parts||{};
-  if(remote.codes&&Object.keys(remote.codes).length>0){
-    CODES=remote.codes;
-    localStorage.setItem('cdp3_codes',JSON.stringify(CODES));
-  }
-  if(remote.cfg&&remote.cfg.nom){
-    CFG={...CFG_DEF,...remote.cfg};
-    localStorage.setItem('cdp3_cfg',JSON.stringify(CFG));
-  }
-  const cache={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts,pyp:S.pyp,pyp_parts:S.pyp_parts,codes:CODES,cfg:CFG,ts:remote.ts||Date.now()};
-  localStorage.setItem('cdp3',JSON.stringify(cache));
-  localStorage.setItem('cdp3_ts',String(cache.ts));
-}
-
 function fbLoad(callback){
-  // Charger cache local pour affichage immédiat
+  // 1. Afficher immédiatement depuis localStorage
   const sv=localStorage.getItem('cdp3');
-  if(sv)try{
-    const p=JSON.parse(sv);
-    S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};
-    if(p.codes&&Object.keys(p.codes).length>0){CODES=p.codes;}
-    if(p.cfg&&p.cfg.nom){CFG={...CFG_DEF,...p.cfg};}
-  }catch(e){}
-  try{callback();}catch(e){console.error(e);}
-  // Synchroniser avec JSONBin
-  showSync('🔄',false);
-  fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
+  if(sv)try{const p=JSON.parse(sv);S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};}catch(e){}
+  // Pas de fallback FI - localStorage est la seule source
+  try{callback();}catch(e){console.error('local callback:',e);}
+  // 2. Synchroniser en arrière-plan
+  showSync('🔄 Sync...',false);
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>{ctrl.abort();showSync('📵 Local',true);},8000);
+  fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY},signal:ctrl.signal})
     .then(r=>r.json())
     .then(res=>{
+      clearTimeout(timer);
       const remote=res.record||{};
       if(remote&&remote.f&&remote.f.length){
-        // Toujours appliquer JSONBin (source de vérité)
-        applyRemote(remote);
-        try{callback();}catch(e){console.error(e);}
-        showSync('☁️',true);
-      } else if(S.f&&S.f.length>0){fbSave();}
+        const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
+        const remoteTs=remote.ts||0;
+        if(remoteTs>localTs){
+          S.f=remote.f;S.s=remote.s||{};
+          S.py={...(S.py||{}),...(remote.py||{})};S.py_parts={...(S.py_parts||{}),...(remote.py_parts||{})};
+          S.pyp={...(S.pyp||{}),...(remote.pyp||{})};
+          localStorage.setItem('cdp3',JSON.stringify(S));
+          localStorage.setItem('cdp3_ts',String(remoteTs));
+          try{callback();}catch(e){console.error('remote callback:',e);}
+        }
+        showSync('☁️ Synchronisé',true);
+      } else {showSync('☁️ Synchronisé',true);fbSave();}
     })
-    .catch(()=>showSync('📵',true));
+    .catch(()=>{clearTimeout(timer);showSync('📵 Hors ligne',true);});
 }
 
 // Helper: build address string from family object
@@ -596,7 +590,6 @@ function selectInterv(selected=''){
 const FI=[]; // Liste vide - données chargées depuis localStorage
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{},codes:null,cfg:null};
-
 let curIdx=null,curPayN=null,curAp=null,curSaisieEleve='';
 // ── SYSTÈME UNDO ──
 let undoStack=[];
@@ -678,7 +671,7 @@ function init(){
   // Remplir les selects d'année dynamiquement (100 ans)
   const now=new Date();
   const curA=now.getFullYear();
-  const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','pr-an','pr-an-imp'];
+  const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','atl-annee','pr-an','pr-an-imp'];
   anneeIds.forEach(id=>{
     const el=document.getElementById(id);
     if(!el)return;
@@ -695,42 +688,55 @@ function init(){
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
-  // ── CHARGEMENT : JSONBin = source de vérité ──
-  showSync('🔄',false);
-
-  // 1. Afficher le cache local immédiatement (pour ne pas bloquer l'UI)
+  // RÈGLE ABSOLUE: localStorage est LA source de vérité
+  // JSONBin sert UNIQUEMENT de sauvegarde distante pour le trésorier
   const sv=localStorage.getItem('cdp3');
   if(sv)try{
     const p=JSON.parse(sv);
     S.f=p.f||[];S.s=p.s||{};S.py=p.py||{};
     S.py_parts=p.py_parts||{};S.pyp=p.pyp||{};S.pyp_parts=p.pyp_parts||{};
-    if(p.codes&&Object.keys(p.codes).length>0)CODES=p.codes;
-    if(p.cfg&&p.cfg.nom)CFG={...CFG_DEF,...p.cfg};
-  }catch(e){}
-  if(S.f.length>0)rFact();
-
-  // 2. Charger depuis JSONBin (toujours, pour tous les utilisateurs)
+  }catch(e){console.error('Erreur localStorage:',e);}
+  // Si localStorage vide (premier lancement), utiliser FI par défaut
+  // S.f reste vide si localStorage vide - pas de fallback sur FI
+  // Afficher immédiatement
+  rFact();
+  // Vérifier JSONBin en arrière-plan UNIQUEMENT pour savoir si le trésorier 
+  // a fait des modifications depuis son appareil (Safari)
+  showSync('🔄',false);
+  const localTs=parseInt(localStorage.getItem('cdp3_ts')||'0');
   fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
     .then(r=>r.json())
     .then(res=>{
       const remote=res.record||{};
-      if(remote&&remote.f&&remote.f.length){
-        // Appliquer les données JSONBin (codes, cfg, familles, etc.)
-        applyRemote(remote);
-        rFact();
-        // Si on est dans les réglages, les rafraîchir aussi
-        if(document.getElementById('pg-reglages').classList.contains('active'))rReglages();
+      const remoteTs=remote.ts||0;
+      if(remote&&remote.f&&remote.f.length&&remoteTs>localTs){
+        // JSONBin plus récent = modifications du trésorier depuis Safari
+        // Afficher une notification, NE PAS écraser automatiquement
+        showSync('🔔 MAJ disponible',false);
+        const syncBtn=document.getElementById('sync-indicator');
+        if(syncBtn){
+          syncBtn.style.cursor='pointer';
+          syncBtn.title='Cliquer pour charger les modifications du trésorier';
+          syncBtn.onclick=()=>{
+            const dateStr=new Date(remoteTs).toLocaleDateString('fr-FR');
+            if(confirm('Des modifications faites depuis un autre appareil ('+dateStr+'). Charger ces modifications ?')){
+              S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
+              S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
+              localStorage.setItem('cdp3',JSON.stringify(S));
+              localStorage.setItem('cdp3_ts',String(remoteTs));
+              rFact();showSync('☁️',true);syncBtn.onclick=null;
+            }
+          };
+        }
+      } else if(!remote||!remote.f||!remote.f.length){
+        // JSONBin vide: pousser les données locales
+        fbSave();
         showSync('☁️',true);
       } else {
-        // JSONBin vide → pousser les données locales
-        if(S.f&&S.f.length>0)fbSave();
         showSync('☁️',true);
       }
     })
-    .catch(()=>{
-      showSync('📵',true);
-    });
-  updateUndoBtn();
+    .catch(()=>showSync('📵',true));
 }
 function save(){fbSave();}
 
@@ -747,7 +753,7 @@ function showPage(id,btn){
   document.querySelectorAll('.bnav button').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+id).classList.add('active');
   if(btn)btn.classList.add('on');
-  else{const map={saisie:99,factures:0,apercu:0,suivi:1,profs:2,familles:3,attestation:3,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
+  else{const map={saisie:99,factures:0,apercu:0,suivi:1,profs:2,familles:3,attestations:4,attestation:99,reglages:99};const bs=document.querySelectorAll('.bnav button');if(map[id]!==undefined&&map[id]<bs.length)bs[map[id]].classList.add('on');}
   document.querySelector('.scroll').scrollTop=0;
   // Mettre à jour bouton undo
   updateUndoBtn();
@@ -1663,7 +1669,7 @@ function rFam(){
   c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
     const elevesStr=(f.eleves||[]).join(", ");
-    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
+    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" </div></div>`;
   }).join('');
 }
 
@@ -1750,27 +1756,81 @@ function delFam(){snapshotS();
 // ── ATTESTATION FISCALE ──
 let curAttestIdx=null;
 
-function calcCesuAuto(){
-  // Calculer automatiquement le total CESU depuis les paiements py_parts
-  const annee=parseInt(document.getElementById('at-annee').value);
-  const idx=curAttestIdx;
-  if(idx===null||idx===undefined)return;
-  const nomFamille=S.f[idx]?.n;
-  const idxFraterie=S.f.map((ff,i)=>ff.n===nomFamille?i:-1).filter(i=>i>=0);
-  let totalCesu=0;
-  idxFraterie.forEach(fi=>{
+function rAttestations(){
+  const a=parseInt(document.getElementById('atl-annee').value)||new Date().getFullYear();
+  const c=document.getElementById('atl-list');
+  if(!c)return;
+  // Toutes les familles ayant au moins un paiement dans l'année
+  const famAvecPaiement=S.f.map((f,idx)=>({f,idx})).filter(({f,idx})=>{
     for(let m=1;m<=12;m++){
-      const key=m+'_'+annee;
-      const s=(S.s[key]||[]).find(s=>s.fi===fi);
-      if(!s||!sTotal(s))continue;
+      const key=m+'_'+a;
+      const s=(S.s[key]||[]).find(s=>s.fi===idx);
+      if(!s)continue;
       const parts=(S.py_parts||{})[s.num]||[];
-      parts.forEach(p=>{
-        if(p.m==='CESU')totalCesu+=parseFloat(p.montant||0);
-      });
+      if(parts.length>0)return true;
+      if((S.py[s.num]||{}).st==='payé')return true;
     }
-  });
-  document.getElementById('at-cesu').value=totalCesu.toFixed(2);
-  calcAttestation();
+    return false;
+  }).sort((a,b)=>a.f.n.localeCompare(b.f.n,'fr'));
+
+  if(!famAvecPaiement.length){
+    c.innerHTML='<div class="empty"><div class="ei">📜</div><p>Aucune famille avec paiements en '+a+'.</p></div>';
+    return;
+  }
+  c.innerHTML=famAvecPaiement.map(({f,idx})=>{
+    const env=!!(f.attestEnvoye&&f.attestEnvoye[a]);
+    const envDate=f.attestEnvoyeDate&&f.attestEnvoyeDate[a]?new Date(f.attestEnvoyeDate[a]+'T00:00:00').toLocaleDateString('fr-FR'):'';
+    const checkBg=env?'#7c3aed':'#fff';
+    const checkMark=env?'<span style="color:#fff;font-size:.75rem;">&#10003;</span>':'';
+    const dateLine=envDate?'<span style="font-size:.65rem;font-weight:400;color:#7c3aed;">'+envDate+'</span>':'';
+    return '<div class="fact-item" style="flex-direction:column;align-items:stretch;gap:8px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="ouvrirAttestation('+idx+')">'
+      +'<div><div style="font-weight:700;">'+f.n+' '+f.p+'</div><div style="font-size:.75rem;color:var(--gris);">'+(f.e||'')+'</div></div>'
+      +'<span style="font-size:1.2rem;color:var(--gris);">&#8250;</span></div>'
+      +'<div style="display:flex;gap:7px;">'
+      +'<label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;flex-direction:column;background:#fff;border:1.5px solid #c4b5fd;border-radius:10px;padding:7px 10px;cursor:pointer;font-size:.82rem;font-weight:700;color:#5b21b6;" onclick="toggleAttestEnvoye('+idx+','+a+')">'
+      +'<div style="display:flex;align-items:center;gap:6px;">'
+      +'<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:2px solid #7c3aed;border-radius:4px;background:'+checkBg+';flex-shrink:0;">'+checkMark+'</span>'
+      +'Envoy&#233;e</div>'+dateLine+'</label>'
+      +'<button class="btn bd bxs bsm" style="flex:1;" onclick="supprimerAttestation('+idx+','+a+')">&#128465; Supprimer</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function toggleAttestEnvoye(idx,a){
+  const f=S.f[idx];if(!f)return;
+  if(!f.attestEnvoye)f.attestEnvoye={};
+  if(!f.attestEnvoyeDate)f.attestEnvoyeDate={};
+  if(f.attestEnvoye[a]){
+    if(!confirm('Confirmer l\'annulation de l\'envoi ?'))return;
+    snapshotS();f.attestEnvoye[a]=false;f.attestEnvoyeDate[a]=null;
+    save();rAttestations();
+  } else {
+    const inp=document.createElement('input');inp.type='date';
+    inp.style.cssText='position:fixed;opacity:0;pointer-events:none;top:0;left:0;';
+    inp.value=new Date().toISOString().split('T')[0];
+    document.body.appendChild(inp);
+    inp.addEventListener('change',()=>{
+      snapshotS();f.attestEnvoye[a]=true;f.attestEnvoyeDate[a]=inp.value;
+      save();rAttestations();document.body.removeChild(inp);
+    });
+    inp.addEventListener('blur',()=>{
+      if(!f.attestEnvoye[a]){snapshotS();f.attestEnvoye[a]=true;f.attestEnvoyeDate[a]=inp.value||new Date().toISOString().split('T')[0];save();rAttestations();}
+      setTimeout(()=>{if(inp.parentNode)document.body.removeChild(inp);},200);
+    });
+    inp.click();inp.focus();
+  }
+}
+
+function supprimerAttestation(idx,a){
+  const f=S.f[idx];if(!f)return;
+  if(!confirm('Supprimer l\'attestation '+a+' pour '+f.n+' ?'))return;
+  snapshotS();
+  for(let m=1;m<=12;m++){
+    const key=m+'_'+a;
+    if(S.s[key]){const i=S.s[key].findIndex(s=>s.fi===idx);if(i>=0){const s=S.s[key][i];if(s.num){delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}S.s[key].splice(i,1);}}
+  }
+  save();rAttestations();
 }
 
 function ouvrirAttestation(idx){
@@ -1778,8 +1838,8 @@ function ouvrirAttestation(idx){
   const f=S.f[idx];
   const adrAttest=fmtAdr(S.f[idx]).join(', ');
   document.getElementById('attest-famille-info').innerHTML=`📋 ${S.f[idx].n} ${S.f[idx].p}${adrAttest?'<br><span style="font-weight:400;font-size:.78rem;color:var(--gris);">'+adrAttest+'</span>':''}`;
-  document.getElementById('at-annee').onchange=()=>{calcAttestation();calcCesuAuto();};
-  calcCesuAuto();
+  document.getElementById('at-annee').onchange=calcAttestation;
+  document.getElementById('at-cesu').value=0;
   const btnMail=document.getElementById('btn-attest-mail');
   if(btnMail)btnMail.style.display=f.e?'block':'none';
   calcAttestation();

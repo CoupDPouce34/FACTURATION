@@ -1669,7 +1669,7 @@ function rFam(){
   c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
     const elevesStr=(f.eleves||[]).join(", ");
-    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" </div></div>`;
+    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;align-items:center;"><span style="font-size:1.2rem;color:var(--gris);">›</span></div></div>`;
   }).join('');
 }
 
@@ -1782,7 +1782,7 @@ function rAttestations(){
     const envDate=f.attestEnvoyeDate&&f.attestEnvoyeDate[a]?new Date(f.attestEnvoyeDate[a]+'T00:00:00').toLocaleDateString('fr-FR'):'';
     const checkBg=env?'#7c3aed':'#fff';
     const checkMark=env?'<span style="color:#fff;font-size:.75rem;">&#10003;</span>':'';
-    const dateLine=envDate?'<span style="font-size:.65rem;font-weight:400;color:#7c3aed;">'+envDate+'</span>':'';
+    const dateLine='';
     return '<div class="fact-item" style="flex-direction:column;align-items:stretch;gap:8px;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="ouvrirAttestation('+idx+')">'
       +'<div><div style="font-weight:700;">'+f.n+' '+f.p+'</div><div style="font-size:.75rem;color:var(--gris);">'+(f.e||'')+'</div></div>'

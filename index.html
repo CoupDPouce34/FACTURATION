@@ -494,37 +494,42 @@ function showSync(msg,ok){
 }
 
 function fbSave(){
-  // JSONBin = SOURCE DE VÉRITÉ UNIQUE
   if(!S.f||S.f.length===0){console.warn('fbSave bloqué: données vides');return;}
-  const ts=Date.now();
-  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts};
   showSync('🔄',false);
-  // 1. Sauvegarder dans JSONBin EN PREMIER
-  fetch(JB_URL,{
-    method:'PUT',
-    headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
-    body:JSON.stringify(data)
-  })
-  .then(r=>{
-    if(r.ok){
-      // 2. JSONBin OK → mettre à jour le cache local
+  // ÉTAPE 1 : Lire JSONBin pour fusionner avant d'écrire
+  fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
+    .then(r=>r.json())
+    .then(res=>{
+      const remote=res.record||{};
+      // ÉTAPE 2 : Fusionner local + remote (union, jamais de perte)
+      const localData={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{}};
+      const merged=mergeData(localData, remote);
+      // Appliquer le merge en local aussi
+      S.s=merged.s; S.py=merged.py; S.py_parts=merged.py_parts;
+      S.pyp=merged.pyp; S.pyp_parts=merged.pyp_parts;
+      const ts=Date.now();
+      const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts,pyp:S.pyp,pyp_parts:S.pyp_parts,codes:CODES,cfg:CFG,ts};
+      // ÉTAPE 3 : Écrire le résultat fusionné dans JSONBin
+      return fetch(JB_URL,{
+        method:'PUT',
+        headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},
+        body:JSON.stringify(data)
+      }).then(r=>{
+        localStorage.setItem('cdp3',JSON.stringify(data));
+        localStorage.setItem('cdp3_ts',String(ts));
+        localStorage.removeItem('cdp3_pending_sync');
+        showSync(r.ok?'☁️':'⚠️',r.ok);
+      });
+    })
+    .catch(()=>{
+      // Hors ligne : sauvegarder localement, synchro au prochain lancement
+      const ts=Date.now();
+      const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts};
       localStorage.setItem('cdp3',JSON.stringify(data));
       localStorage.setItem('cdp3_ts',String(ts));
-      showSync('☁️',true);
-    } else {
-      showSync('⚠️ Erreur sauvegarde',false);
-      // Sauvegarder quand même en local comme backup
-      localStorage.setItem('cdp3',JSON.stringify(data));
-      localStorage.setItem('cdp3_ts',String(ts));
-    }
-  })
-  .catch(()=>{
-    // Hors ligne: sauvegarder localement, re-sync au prochain lancement
-    localStorage.setItem('cdp3',JSON.stringify(data));
-    localStorage.setItem('cdp3_ts',String(ts));
-    localStorage.setItem('cdp3_pending_sync','1');
-    showSync('📵 Hors ligne - sauvegardé localement',false);
-  });
+      localStorage.setItem('cdp3_pending_sync','1');
+      showSync('📵',false);
+    });
 }
 
 function fbLoad(callback){

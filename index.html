@@ -305,7 +305,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 
     <div class="card">
       <div class="ctitle">💾 Sauvegarde</div>
-      <div style="font-size:.8rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Exporte toutes tes données pour les sauvegarder ou les transférer.</div>
+      <div style="font-size:.8rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Exporte toutes tes données pour les sauvegarder ou les transférer sur un autre appareil.</div>
       <button class="btn bv bfull bsm" onclick="expData()">📤 Exporter toutes les données</button>
       <button class="btn bo bfull bsm" onclick="document.getElementById('imp-file').click()">📂 Importer des données</button>
       <input type="file" id="imp-file" accept=".json" style="display:none" onchange="impData(event)">
@@ -524,19 +524,18 @@ function mergeData(a,b){
 }
 function jbGet(){return fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}}).then(r=>r.json()).then(res=>res.record||{});}
 function jbPut(d){return fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:JSON.stringify(d)});}
-
-// ── SAVE : écriture directe sur JSONBin, pas de localStorage ──
 function save(){
   if(!S.f||S.f.length===0)return;
   showSync('🔄',false);
-  const toSave={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts:Date.now()};
-  jbPut(toSave).then(r=>{
-    showSync(r.ok?'☁️':'⚠️',r.ok);
-  }).catch(()=>showSync('📵',false));
+  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG};
+  jbGet().then(remote=>{
+    const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
+    merged.ts=Date.now();
+    S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;
+    return jbPut(merged);
+  }).then(r=>showSync(r.ok?'☁️':'⚠️',r.ok)).catch(()=>showSync('📵',false));
 }
-function fbSave(){save();}
 
-// ── APPLY : applique les données JSONBin en mémoire ──
 function applyRemote(remote){
   if(!remote||!remote.f||!remote.f.length)return;
   S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
@@ -545,20 +544,6 @@ function applyRemote(remote){
   if(remote.cfg&&remote.cfg.nom)CFG={...CFG_DEF,...remote.cfg};
 }
 
-// fbLoad conservé pour compatibilité mais pointe sur JSONBin uniquement
-function fbLoad(callback){
-  showSync('🔄',false);
-  jbGet().then(remote=>{
-    if(remote&&remote.f&&remote.f.length){
-      applyRemote(remote);
-      try{callback();}catch(e){console.error(e);}
-      showSync('☁️',true);
-    } else {
-      try{callback();}catch(e){console.error(e);}
-      showSync('☁️',true);
-    }
-  }).catch(()=>{showSync('📵',false);try{callback();}catch(e){console.error(e);}});
-}
 
 // Helper: build address string from family object
 function fmtAdr(f){
@@ -588,7 +573,7 @@ function selectInterv(selected=''){
   return `<option value="">-- Choisir --</option>${opts}`;
 }
 
-const FI=[];
+const FI=[]; // Liste vide - données chargées depuis JSONBin
 
 let S={f:[],s:{},py:{},py_parts:{},pyp:{},pyp_parts:{},codes:null,cfg:null};
 
@@ -617,7 +602,7 @@ function updateUndoBtn(){
 function goBack(){
   if(undoStack.length===0)return;
   S=undoStack.pop();
-  // Sauvegarder l'état restauré sur JSONBin
+  // Sauvegarder l'état restauré
   save();
   updateUndoBtn();
   // Rafraîchir la vue courante
@@ -663,7 +648,7 @@ function ga(){
 function gk(){return gm()+'_'+ga();}
 
 function init(){
-  // Remplir les selects d'année dynamiquement
+  // Remplir les selects d'année dynamiquement (100 ans)
   const now=new Date();
   const curA=now.getFullYear();
   const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','atl-annee','pr-an','pr-an-imp'];
@@ -683,17 +668,16 @@ function init(){
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
 
-  // ── CHARGEMENT : JSONBin = unique source de vérité ──
+  // ── CHARGEMENT : JSONBin = source de vérité unique ──
   showSync('🔄',false);
   document.getElementById('fl').innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
   jbGet().then(remote=>{
-    applyRemote(remote);
+    if(remote&&remote.f&&remote.f.length){
+      applyRemote(remote);
+    }
     rFact();
     showSync('☁️',true);
-  }).catch(()=>{
-    showSync('📵',false);
-    rFact();
-  });
+  }).catch(()=>{showSync('📵',false);rFact();});
   updateUndoBtn();
 }
 
@@ -1985,7 +1969,7 @@ function saveCFG(){snapshotS();
   CFG.iban=document.getElementById('cfg-iban').value.trim()||CFG_DEF.iban;
   CFG.repNom=document.getElementById('cfg-rep-nom').value.trim();
   CFG.adr2=document.getElementById('cfg-adr2').value.trim();
-  save();
+  save(); // Sauvegarder dans JSONBin
   alert('✅ Informations sauvegardées !');
 }
 function rCodes(){
@@ -2019,14 +2003,14 @@ function valCode(){snapshotS();
   const code=(nom.substring(0,2)).toUpperCase();
   if(old&&old!==nom)delete CODES[old];
   CODES[nom]=code;
-  save();
+  save(); // Sauvegarder dans JSONBin
   cm('m-code');rCodes();
 }
 function delCode(){snapshotS();
   const old=document.getElementById('mc-old').value;
   if(!confirm('Supprimer '+old+' ?'))return;
   delete CODES[old];
-  save();
+  save(); // Sauvegarder dans JSONBin
   cm('m-code');rCodes();
 }
 function changeSapLogo(event){
@@ -2123,27 +2107,36 @@ function supprimerAttestation(idx,a){
   save();rAttestations();
 }
 
+
 function expData(){
-  // Export depuis JSONBin (données en mémoire = ce qui vient de JSONBin)
-  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts:Date.now()};
+  const data={familles:S.f,saisies:S.s,paiements:S.py,cfg:CFG,codes:CODES};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download=`CoupDPouce_Backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
 }
-
 function impData(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
   reader.onload=e=>{try{snapshotS();
     const d=JSON.parse(e.target.result);
-    // Format export standard (f, s, py, codes, cfg)
-    if(d.f){S.f=d.f;S.s=d.s||{};S.py=d.py||{};S.py_parts=d.py_parts||{};S.pyp=d.pyp||{};S.pyp_parts=d.pyp_parts||{};}
-    // Format export ancien (familles, saisies, paiements)
-    else if(d.familles){S.f=d.familles;S.s=d.saisies||{};S.py=d.paiements||{};}
+    // Format backup (clés cdp3, cdp3_cfg)
+    if(d.cdp3){
+      const inner=JSON.parse(d.cdp3);
+      S.f=inner.f||[];S.s=inner.s||{};S.py=inner.py||{};
+      S.py_parts=inner.py_parts||{};S.pyp=inner.pyp||{};S.pyp_parts=inner.pyp_parts||{};
+      if(d.cdp3_cfg){CFG={...CFG_DEF,...JSON.parse(d.cdp3_cfg)};}
+      const ts=d.cdp3_ts?parseInt(d.cdp3_ts):Date.now();
+      S.ts=ts;
+      save();rReglages();rFact();alert('✅ Données restaurées ! ('+S.f.length+' familles, '+Object.keys(S.s).length+' mois)');
+      return;
+    }
+    // Format export standard (familles, saisies, paiements)
+    if(d.familles)S.f=d.familles;
+    if(d.saisies)S.s=d.saisies;
+    if(d.paiements)S.py=d.paiements;
     if(d.cfg){CFG={...CFG_DEF,...d.cfg};}
     if(d.codes){CODES=d.codes;}
-    save();rReglages();rFact();
-    alert('✅ Données importées et sauvegardées sur JSONBin ! ('+S.f.length+' familles)');
+    save();rReglages();rFact();alert('✅ Données importées avec succès !');
   }catch(err){console.error(err);alert('Erreur lors de l\'import: '+err.message);}};
   reader.readAsText(file);
 }

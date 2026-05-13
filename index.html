@@ -1905,17 +1905,24 @@ function genAttestPDF(){
   const idx=curAttestIdx;
   const f=S.f[idx];
   const today=new Date().toLocaleDateString('fr-FR');
-  const rep=CFG.repNom||'[Nom du représentant]';
-  const titre=CFG.repTitre||'Présidente';
 
+  // ── Même calcul que l'aperçu HTML : fraterie + py_parts + statut partiel ──
+  const nomFamille=S.f[idx]?.n;
+  const idxFraterie=S.f.map((ff,i)=>ff.n===nomFamille?i:-1).filter(i=>i>=0);
   let totalAnnuel=0,nbMois=0;
-  for(let m=1;m<=12;m++){
-    const key=m+'_'+annee;
-    const s=(S.s[key]||[]).find(s=>s.fi===idx);
-    if(!s||!sTotal(s))continue;
-    const py=S.py[s.num]||{};
-    if(py.st==='payé'){totalAnnuel+=sMontant(s);nbMois++;}
-  }
+  idxFraterie.forEach(fi=>{
+    for(let m=1;m<=12;m++){
+      const key=m+'_'+annee;
+      const s=(S.s[key]||[]).find(s=>s.fi===fi);
+      if(!s||!sTotal(s))continue;
+      const py=S.py[s.num]||{};
+      if(py.st==='payé'||py.st==='partiel'){
+        const parts=(S.py_parts||{})[s.num]||[];
+        const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):parseFloat(py.m2||0)||sMontant(s);
+        totalAnnuel+=paid;nbMois++;
+      }
+    }
+  });
   if(nbMois===0){alert('Aucun paiement confirmé pour cette famille en '+annee+'.\nMarque les paiements dans l\'onglet Paiements d\'abord.');return;}
 
   const{jsPDF}=window.jspdf;

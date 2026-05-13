@@ -624,10 +624,12 @@ function sMontant(s){
   return (parseFloat(s.h)||0)*(parseFloat(s.pr)||s.prixFige||CFG.tarifFamille||35);
 }
 // Helper: build intervenant select options
-function selectInterv(selected=''){
-  const opts=Object.keys(CODES).map(nom=>`<option value="${nom}" ${nom===selected?'selected':''}>${nom}</option>`).join('');
+function selectProfs(selected=''){
+  const profs=S.profs&&S.profs.length?S.profs:Object.keys(CODES);
+  const opts=profs.map(nom=>`<option value="${nom}" ${nom===selected?'selected':''}>${nom}</option>`).join('');
   return `<option value="">-- Choisir --</option>${opts}`;
 }
+function selectInterv(s=''){return selectProfs(s);}
 
 const FI=[]; // Liste vide - données chargées depuis JSONBin
 

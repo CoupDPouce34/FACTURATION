@@ -282,21 +282,12 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
 
       <div class="field"><label class="sl">IBAN</label><input type="text" id="cfg-iban"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
-      <div class="ctitle" style="margin-bottom:10px;">💶 Tarifs globaux</div>
-      <div class="field"><label class="sl">Tarif famille (€/h)</label><input type="number" id="cfg-tarif-famille" min="0" step="0.5" placeholder="ex: 35"></div>
-      <div class="field"><label class="sl">Tarif prof (€/h)</label><input type="number" id="cfg-tarif-prof" min="0" step="0.5" placeholder="ex: 28"></div>
+      <div class="ctitle" style="margin-bottom:10px;">💶 Tarifs</div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">✍️ Représentant légal (pour attestations)</div>
       <div class="field"><label class="sl">Nom complet du représentant</label><input type="text" id="cfg-rep-nom" placeholder="ex: Mairi OIKONOMOU"></div>
       <button class="btn bv bfull bsm" onclick="saveCFG()">💾 Sauvegarder les infos</button>
     </div>
-    <div class="card">
-      <div class="ctitle">👨‍🏫 Profs / Intervenants</div>
-      <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;">Ces profs seront disponibles dans les menus déroulants lors de la saisie des factures.</div>
-      <div id="profs-list-reglages"></div>
-      <button class="btn bv bfull bsm" style="margin-top:8px;" onclick="addProf()">➕ Nouveau prof</button>
-    </div>
-
     <div class="card">
       <div class="ctitle">🏷️ SAP (Service à la Personne)</div>
       <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;">Ces infos n'apparaissent que sur les factures et attestations des clients cochés SAP.</div>
@@ -367,21 +358,6 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <button onclick="showPage('attestations',this)"><span class="i">📜</span>Attestations</button>
 </nav>
 
-<!-- MODAL PROF (RÉGLAGES) -->
-<div class="modalbg" id="m-prof">
-  <div class="msheet">
-    <div class="mhandle"></div>
-    <div class="mtitle" id="m-prof-titre">Intervenant</div>
-    <div class="field"><label class="sl">Nom du prof</label><input type="text" id="mp-nom" placeholder="ex: Laurent"></div>
-    <input type="hidden" id="mp-old">
-    <div class="mbtns">
-      <button class="btn bv" onclick="valProf()">💾 Sauvegarder</button>
-      <button class="btn bd bsm" id="mp-del" onclick="delProf()" style="display:none;">🗑 Supprimer</button>
-      <button class="btn bo" onclick="cm('m-prof')">Annuler</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL CODE INTERVENANT -->
 <div class="modalbg" id="m-code">
   <div class="msheet">
@@ -415,7 +391,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="mhandle"></div>
     <div class="mtitle" id="m-saisie-nom">Saisir les cours</div>
     <div id="ms-lignes"></div>
-    <button class="btn bo bsm" id="btn-ajouter-eleve" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un nouvel élève/prof</button>
+    <button class="btn bo bsm" id="btn-ajouter-eleve" onclick="ajouterLigne()" style="width:100%;margin-bottom:12px;">➕ Ajouter un élève</button>
     <div class="field"><label class="sl">N° de facture <span style="font-weight:400;color:var(--gris);">(modifiable)</span></label><input type="text" id="ms-num" placeholder="généré automatiquement"></div>
     <div class="mbtns">
       <button class="btn bv" onclick="valSaisie()">✅ Valider</button>
@@ -470,6 +446,10 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="msheet">
     <div class="mhandle"></div>
     <div class="mtitle" id="m-fam-titre">Client</div>
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#eff6ff;border:1.5px solid #c4b5fd;border-radius:10px;margin-bottom:8px;cursor:pointer;">
+      <input type="checkbox" id="mf-sap" style="width:18px;height:18px;accent-color:#7c3aed;">
+      <span style="font-weight:700;color:#5b21b6;font-size:.9rem;">SAP (Service à la Personne)</span>
+    </label>
     <div class="field"><label class="sl">Nom</label><input type="text" id="mf-n" placeholder="NOM (attestation fiscale)"></div>
     <div class="field"><label class="sl">Prénom</label><input type="text" id="mf-p" placeholder="Prénom (attestation fiscale)"></div>
     <div class="field"><label class="sl">Rue</label><input type="text" id="mf-rue" placeholder="ex: 5 rue Marcel Pagnol"></div>
@@ -479,11 +459,12 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     </div>
     <div class="field"><label class="sl">Email</label><input type="text" id="mf-e" placeholder="email@famille.fr" inputmode="email"></div>
     <div class="field"><label class="sl">Téléphone</label><input type="text" id="mf-tel" placeholder="06 xx xx xx xx" inputmode="tel"></div>
+    <div class="field"><label class="sl">Tarif horaire (€)</label><input type="number" id="mf-tarif" min="0" step="0.5" placeholder="ex: 35"></div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="mf-pr" placeholder="ex: tarif spécial, frère/sœur..."></div>
     <div class="field">
       <label class="sl">Élèves</label>
       <div id="mf-eleves-list" style="margin-bottom:6px;"></div>
-      <button type="button" class="btn bo bxs bsm" onclick="ajouterEleve()" style="width:100%;">➕ Ajouter un nouvel élève/prof</button>
+      <button type="button" class="btn bo bxs bsm" onclick="ajouterEleve()" style="width:100%;">➕ Ajouter un élève</button>
     </div>
     <input type="hidden" id="mf-idx">
     <div class="mbtns">
@@ -529,7 +510,10 @@ function applyRemote(remote){
   if(!remote||!remote.f||!remote.f.length)return;
   S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
   S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
-  if(remote.codes&&Object.keys(remote.codes).length>0)CODES=remote.codes;
+  S.profs=remote.profs||[];
+  if(remote.codes&&Object.keys(remote.codes).length>0){CODES=remote.codes;
+    if(S.profs.length===0)S.profs=Object.keys(CODES);
+  }
   if(remote.cfg&&remote.cfg.nom)CFG={...CFG_DEF,...remote.cfg};
   if(remote.ts)_lastRemoteTs=remote.ts;
 }
@@ -555,16 +539,16 @@ function mergeData(a,b){
     else for(const rp of bPypP[k])if(!m.pyp_parts[k].find(ep=>ep.d===rp.d&&String(ep.montant)===String(rp.montant)))m.pyp_parts[k].push(rp);}
   if(Object.keys(b.codes||{}).length>Object.keys(m.codes||{}).length)m.codes=b.codes;
   if(b.cfg&&b.cfg.nom)m.cfg={...CFG_DEF,...(m.cfg||{}),...b.cfg};
-  // Fusionner profs (union sans doublon)
-  const aProfs=m.profs||[];const bProfs=b.profs||[];
-  m.profs=[...new Set([...aProfs,...bProfs])];
+  // Fusionner profs (union sans doublon, préserver la liste la plus longue)
+  const aP=m.profs||[];const bP=b.profs||[];
+  m.profs=aP.length>=bP.length?[...new Set([...aP,...bP])]:[...new Set([...bP,...aP])];
   return m;
 }
 
 function save(){
   if(!S.f||S.f.length===0)return;
   showSync('🔄',false);
-  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG};
+  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG};
   jbGet().then(remote=>{
     const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
     merged.ts=Date.now();
@@ -623,16 +607,14 @@ function sTotal(s){
 function sMontant(s){
   // Prix figé au moment de la saisie (s.prixFige), ou ligne par ligne (l.pr)
   // Ne jamais utiliser CFG.prixFamille pour une facture déjà validée
-  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||s.prixFige||CFG.tarifFamille||35),0);
-  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||s.prixFige||CFG.tarifFamille||35);
+  if(s.lignes&&s.lignes.length) return s.lignes.reduce((acc,l)=>acc+(parseFloat(l.h)||0)*(parseFloat(l.pr)||s.prixFige||35),0);
+  return (parseFloat(s.h)||0)*(parseFloat(s.pr)||s.prixFige||35);
 }
 // Helper: build intervenant select options
-function selectProfs(selected=''){
-  const profs=S.profs&&S.profs.length?S.profs:Object.keys(CODES);
-  const opts=profs.map(nom=>`<option value="${nom}" ${nom===selected?'selected':''}>${nom}</option>`).join('');
+function selectInterv(selected=''){
+  const opts=Object.keys(CODES).map(nom=>`<option value="${nom}" ${nom===selected?'selected':''}>${nom}</option>`).join('');
   return `<option value="">-- Choisir --</option>${opts}`;
 }
-function selectInterv(s=''){return selectProfs(s);}
 
 const FI=[]; // Liste vide - données chargées depuis JSONBin
 
@@ -731,16 +713,12 @@ function init(){
 
   // ── CHARGEMENT : JSONBin = source de vérité unique ──
   showSync('🔄',false);
-  const _flEl=document.getElementById('fl');
-  if(_flEl)_flEl.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
+  document.getElementById('fl').innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
   jbGet().then(remote=>{
-    if(remote&&remote.f&&remote.f.length){applyRemote(remote);}
+    if(remote&&remote.f&&remote.f.length){
+      applyRemote(remote);
+    }
     rFact();
-    if(document.querySelector('#pg-suivi.active'))rSuivi();
-    if(document.querySelector('#pg-profs.active'))rProfs();
-    if(document.querySelector('#pg-familles.active'))rFam();
-    if(document.querySelector('#pg-reglages.active'))rReglages();
-    if(document.querySelector('#pg-attestations.active'))rAttestations();
     showSync('☁️',true);
     startPolling();
   }).catch(()=>{showSync('📵',false);rFact();startPolling();});
@@ -839,10 +817,10 @@ function rSaisie(){
     (S.s[k]||[]).forEach(s=>{totAn+=sMontant(s);hAn+=sTotal(s);});
   }
 
-  const _st1=document.getElementById('st-tot');if(_st1)_st1.textContent=tot.toFixed(0)+' €';
-  const _st2=document.getElementById('st-an');if(_st2)_st2.textContent=totAn.toFixed(0)+' €';
-  const _st3=document.getElementById('st-h-mois');if(_st3)_st3.textContent=hMois>0?hMois+'h':'';
-  const _st4=document.getElementById('st-h-an');if(_st4)_st4.textContent=hAn>0?hAn+'h':'';
+  document.getElementById('st-tot').textContent=tot.toFixed(0)+' €';
+  document.getElementById('st-an').textContent=totAn.toFixed(0)+' €';
+  document.getElementById('st-h-mois').textContent=hMois>0?hMois+'h':'';
+  document.getElementById('st-h-an').textContent=hAn>0?hAn+'h':'';
 
   const c=document.getElementById('sl');
   if(!fams.length){c.innerHTML='<div class="empty"><div class="ei">🔍</div><p>Aucune famille trouvée</p></div>';return;}
@@ -868,7 +846,10 @@ function openS(idx){
 
   document.getElementById('ms-num').value=s.num||'';
   // Stocker le tarif de la famille pour la saisie
-  const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i||f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||(CFG.tarifFamille||35),pp:s.pp||(CFG.tarifProf||28),eleve:s.eleve||'',prestation:'Cours à domicile'}];
+  window._curTarif=S.f[curIdx]&&S.f[curIdx].tarif?S.f[curIdx].tarif:(CFG.prixFamille||35);
+  // Rebuild lignes from saved data or default — utiliser le tarif de la famille pour les nouvelles lignes
+  const defaultTarif=f.tarif||window._curTarif;
+  const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i||f.i||'',h:s.h||'',d:s.d||'',pr:s.pr||defaultTarif,pp:s.pp||CFG.prixProf||28,eleve:s.eleve||'',prestation:'Cours à domicile'}];
   renderLignes(lignes,f);
   // prix par ligne dans renderLignes
   document.getElementById('m-saisie').classList.add('open');
@@ -881,16 +862,12 @@ function mkBlocHTML(l, i, total, f){
   const showX=total>1;
   return `<div data-ligne="${i}" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">🎓 Élève${total>1?' '+(i+1):''}</div>
+      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">🎓 Élève ${total>1?i+1:''}</div>
       ${showX?`<button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--danger);padding:0;line-height:1;">✕</button>`:''}
     </div>
-    ${hasEleves
-      ?`<div class="field"><label class="sl">Élève</label><select id="ms-eleve-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select></div>`
-      :`<div class="field"><label class="sl">Élève (prénom)</label><input type="text" id="ms-eleve-${i}" value="${l.eleve||''}" placeholder="Prénom de l'élève" style="width:100%;padding:10px 12px;border:1.5px solid var(--bord);border-radius:10px;font-size:.93rem;"></div>`
-    }
-    <div class="field"><label class="sl">Prof</label>
-      <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">${selectProfs(l.i||'')}</select>
-    </div>
+    ${hasEleves?`<div class="field"><label class="sl">Élève</label>
+      <select id="ms-eleve-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select>
+    </div>`:''}
     <div class="field"><label class="sl">Prestations</label><input type="text" id="ms-prest-${i}" value="${l.prestation||'Cours à domicile'}" placeholder="Cours à domicile"></div>
     <div class="field">
       <label class="sl">Heures</label>
@@ -900,8 +877,7 @@ function mkBlocHTML(l, i, total, f){
         <button type="button" onclick="(function(){const el=document.getElementById('ms-h-${i}');const v=parseFloat(el.value)||0;el.value=(v+0.25).toString();})()" style="background:#f0f4ff;border:none;border-left:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
       </div>
     </div>
-    <div class="field"><label class="sl">Tarif famille (€/h)</label><input type="number" id="ms-p-${i}" value="${l.pr||(CFG.tarifFamille||35)}" min="0" step="0.5"></div>
-    <div class="field"><label class="sl">Tarif prof (€/h)</label><input type="number" id="ms-pp-${i}" value="${l.pp||(CFG.tarifProf||28)}" min="0" step="0.5"></div>
+    <div class="field"><label class="sl">Tarif (€/h)</label><input type="number" id="ms-p-${i}" value="${l.pr||(f&&f.tarif?f.tarif:(window._curTarif||35))}" min="0" step="0.5"></div>
     <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
   </div>`;
 }
@@ -947,7 +923,7 @@ function collectLignes(){
     const ppL=document.getElementById(`ms-pp-${i}`);
     const eleveL=document.getElementById(`ms-eleve-${i}`);
     const prestL=document.getElementById(`ms-prest-${i}`);
-    if(h)result.push({i:sel?sel.value:'',h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||(CFG.tarifFamille||35),pp:parseFloat(ppL?.value)||(CFG.tarifProf||28),d:d?.value||'',eleve:eleveL?eleveL.value:'',prestation:prestL?prestL.value:'Cours à domicile'});
+    if(h)result.push({i:sel?sel.value:'',h:parseFloat(h?.value)||0,pr:parseFloat(p?.value)||(CFG.prixFamille||35),pp:parseFloat(ppL?.value)||(CFG.prixProf||28),d:d?.value||'',eleve:eleveL?eleveL.value:'',prestation:prestL?prestL.value:'Cours à domicile'});
   });
   return result;
 }
@@ -964,8 +940,8 @@ function valSaisie(){snapshotS();
   s.lignes=lignes; // prestation sauvegardée par ligne
   s.eleve=selectedEleve;
   // pp per ligne already saved in lignes[].pp
-  s.pp=lignes.length>0?(lignes[0].pp||CFG.tarifProf||28):CFG.tarifProf||28;
-  s.prixFam=lignes.length>0?(lignes[0].pr||CFG.tarifFamille||35):CFG.tarifFamille||35;
+  s.pp=lignes.length>0?(lignes[0].pp||CFG.prixProf||28):CFG.prixProf||28;
+  s.prixFam=lignes.length>0?(lignes[0].pr||CFG.prixFamille||35):CFG.prixFamille||35;
   s.prixFige=s.prixFam; // Prix figé à la validation
   // Keep legacy h/i/pr/d for compatibility
   if(lignes.length===1){s.h=lignes[0].h;s.i=lignes[0].i;s.pr=lignes[0].pr;s.d=lignes[0].d;}
@@ -1173,7 +1149,6 @@ function voirF(fi,m,a){
   const dataRows=lignes.filter(l=>l.h>0).map(l=>`
     <tr>
       <td style="vertical-align:middle;">${l.prestation||'Cours à domicile'}${l.eleve?' – '+l.eleve:''}</td>
-      <td style="vertical-align:middle;">${l.i||'—'}</td>
       <td style="vertical-align:middle;"><strong>${l.d||MN[m]}</strong></td>
       <td style="vertical-align:middle;">${l.h}</td>
       <td style="vertical-align:middle;">${(l.pr||35)} €</td>
@@ -1181,12 +1156,12 @@ function voirF(fi,m,a){
     </tr>`).join('');
   document.getElementById('ap').innerHTML=`
     <div class="ihead">
-      <div class="iasso"><strong>${CFG.nom}</strong>${adrAss.map(l=>'<br>'+l).join('')}<br>${CFG.email}<br>SIREN ${CFG.siren}${f.sap&&CFG.sap?'<br><small>'+CFG.sap+'</small>':''}</div>
+      <div class="iasso"><strong>${CFG.nom}</strong>${adrAss.map(l=>'<br>'+l).join('')}<br>${CFG.email}<br>SIREN ${CFG.siren}${CFG.sap?'<br><small>'+CFG.sap+'</small>':''}</div>
       <div class="ifam"><strong>${f.n} ${f.p}</strong>${adrLines.map(l=>'<br>'+l).join('')}</div>
     </div>
     <div style="text-align:right;font-size:7.5pt;color:#888;">DATE : ${today}</div>
     <div class="ititre">FACTURE N° ${s.num||'—'}</div>
-    <table class="itable"><thead><tr><th>Prestations</th><th>Prof</th><th>Mois</th><th>Heures</th><th>Prix U.</th><th>Total</th></tr></thead>
+    <table class="itable"><thead><tr><th>Prestations</th><th>Mois</th><th>Heures</th><th>Prix U.</th><th>Total</th></tr></thead>
     <tbody>
       ${dataRows}
       <tr class="tot"><td colspan="4" style="text-align:right;vertical-align:middle;"><strong>TOTAL</strong></td><td style="vertical-align:middle;text-align:right;"><strong>${tot} €</strong></td></tr>
@@ -1213,7 +1188,7 @@ function mkPDF(s,f,m,a,tot){
   if(CFG.adr2)doc.text(CFG.adr2,18,y+10);
   doc.text(CFG.email,18,y+15);
   doc.text('SIREN '+CFG.siren,18,y+20);
-  if(f.sap&&CFG.sap){doc.setFontSize(7.5);doc.text(CFG.sap,18,y+25,{maxWidth:88});}
+  if(CFG.sap){doc.setFontSize(7.5);doc.text(CFG.sap,18,y+25,{maxWidth:88});}
   // ADRESSE FAMILLE — nom+prénom en gras
   doc.setFontSize(9);doc.setTextColor(40);doc.setFont('helvetica','bold');
   doc.text(f.n+(f.p?' '+f.p:''),130,y,{maxWidth:62});
@@ -1231,11 +1206,11 @@ function mkPDF(s,f,m,a,tot){
   doc.setDrawColor(30,64,175);doc.setLineWidth(0.6);doc.line(18,y+3,193,y+3);
   doc.setFont('helvetica','normal');y+=14;
   // TABLEAU en bleu
-  const cols=[18,68,101,124,149,172],cw=[50,33,23,25,23,21];
+  const cols=[18,80,113,138,166],cw=[62,33,25,28,27];
   const rh=9;
   doc.setFillColor(30,64,175);doc.rect(18,y,175,rh,'F');
   doc.setTextColor(255);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  ['Prestations','Prof','Mois','Nb h','Prix U.','Total'].forEach((h,i)=>doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]}));
+  ['Prestations','Mois','Nb h','Prix U.','Total'].forEach((h,i)=>doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]}));
   y+=rh;
   // Data rows — mois en gras
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h,pr:s.pr,d:s.d}];
@@ -1244,13 +1219,13 @@ function mkPDF(s,f,m,a,tot){
     const lt=(l.h*l.pr).toFixed(2);
     const moisTxt=l.d||MN[m];
     const prest=(l.prestation||'Cours à domicile')+(l.eleve?' – '+l.eleve:'');
-    const vals=[prest,l.i||'—',moisTxt,String(l.h),(l.pr||35)+' €',lt+' €'];
+    const vals=[prest,moisTxt,String(l.h),(l.pr||35)+' €',lt+' €'];
     cols.forEach((x,i)=>{
       doc.rect(x,y,cw[i],rh);
       if(i===0){// Prestations: aligné à gauche
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);
         doc.text(String(vals[i]),x+2,y+rh/2+1.5,{align:'left',maxWidth:cw[i]-3});
-      } else if(i===2){// Mois en gras centré
+      } else if(i===1){// Mois en gras centré
         doc.setFont('helvetica','bold');doc.setFontSize(8.5);
         doc.text(String(vals[i]),x+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]-1});
         doc.setFont('helvetica','normal');doc.setFontSize(8.5);
@@ -1265,8 +1240,8 @@ function mkPDF(s,f,m,a,tot){
   doc.setFillColor(239,246,255);doc.rect(18,y,175,rh,'F');
   cols.forEach((x,i)=>doc.rect(x,y,cw[i],rh));
   doc.setFont('helvetica','bold');doc.setFontSize(8.5);
-  doc.text('TOTAL',cols[4]+cw[4]/2,y+rh/2+1.5,{align:'center'});
-  doc.text(tot+' €',cols[5]+cw[5]/2,y+rh/2+1.5,{align:'center'});
+  doc.text('TOTAL',cols[3]+cw[3]/2,y+rh/2+1.5,{align:'center'});
+  doc.text(tot+' €',cols[4]+cw[4]/2,y+rh/2+1.5,{align:'center'});
   y+=rh;
   // TVA row
   doc.setFillColor(255,255,255);doc.rect(18,y,175,7,'F');
@@ -1280,7 +1255,7 @@ function mkPDF(s,f,m,a,tot){
   y+=7;
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
-  // LOGO SAP (toujours affiché)
+  // LOGO SAP + mention bas de page (toujours affiché)
   {
     const yLogo=y+12;
     try{
@@ -1345,7 +1320,7 @@ function expProfsXLS(){
       });
     });
     Object.entries(byProf).forEach(([nom,lignes])=>{
-      const prixProf=lignes[0]?.s?.pp||CFG.tarifProf||28;
+      const prixProf=lignes[0]?.s?.pp||CFG.prixProf||28;
       const profKey=nom+'_'+m+'_'+a;
       const pyp=(S.pyp||{})[profKey]||{};
       lignes.forEach(({l,fi})=>{
@@ -1395,7 +1370,6 @@ function annPayProfPartiel(key,idx){snapshotS();
 function rProfsImpaye(){
   const a=parseInt(document.getElementById('pr-an-imp').value);
   const c=document.getElementById('profs-list');
-  if(!c)return;
   let html='';
   let totalImpaye=0;
   for(let m=1;m<=12;m++){
@@ -1411,7 +1385,7 @@ function rProfsImpaye(){
       });
     });
     Object.entries(byProf).forEach(([nom,lignes])=>{
-      const prixProf=lignes[0]?.s?.pp||CFG.tarifProf||28;
+      const prixProf=lignes[0]?.s?.pp||CFG.prixProf||28;
       const totalH=lignes.reduce((acc,{l})=>acc+(parseFloat(l.h)||0),0);
       const totalEur=(totalH*prixProf).toFixed(2);
       const profKey=nom+'_'+m+'_'+a;
@@ -1434,14 +1408,13 @@ function rProfsImpaye(){
   const famBox=document.getElementById('pr-fam-box');if(famBox)famBox.style.display='none';
   const profBox=document.getElementById('pr-prof-box');if(profBox)profBox.style.display='none';
   const margeBox=document.getElementById('pr-marge-box');if(margeBox)margeBox.style.gridColumn='1/-1';
-  const _pm=document.getElementById('pr-marge');if(_pm)_pm.textContent=totalImpaye.toFixed(0)+' €';
+  document.getElementById('pr-marge').textContent=totalImpaye.toFixed(0)+' €';
   const margeEl=document.querySelector('#pr-marge-box .l');if(margeEl)margeEl.textContent='Total impayé profs';
   if(!html)c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Tous les profs sont payés !</p></div>';
   else c.innerHTML=html;
 }
 
 function rProfs(){
-  if(!document.getElementById('profs-list'))return;
   if(vueProfs==='impaye'){rProfsImpaye();return;}
   const m=parseInt(document.getElementById('pr-mois').value);
   const a=parseInt(document.getElementById('pr-an').value);
@@ -1471,9 +1444,9 @@ function rProfs(){
       totProfPaye+=parts.reduce((a,p)=>a+parseFloat(p.montant||0),0);
     });
   }
-  const _ptf=document.getElementById('pr-tot-fam');if(_ptf)_ptf.textContent=totFamAn.toFixed(0)+' €';
-  const _ptp=document.getElementById('pr-tot-prof');if(_ptp)_ptp.textContent=totProfPaye.toFixed(0)+' €';
-  const _pm2=document.getElementById('pr-marge');if(_pm2)_pm2.textContent=(totFamAn-totProfPaye).toFixed(0)+' €';
+  document.getElementById('pr-tot-fam').textContent=totFamAn.toFixed(0)+' €';
+  document.getElementById('pr-tot-prof').textContent=totProfPaye.toFixed(0)+' €';
+  document.getElementById('pr-marge').textContent=(totFamAn-totProfPaye).toFixed(0)+' €';
   const famBox2=document.getElementById('pr-fam-box');if(famBox2)famBox2.style.display='';
   const profBox2=document.getElementById('pr-prof-box');if(profBox2)profBox2.style.display='';
   const margeBox2=document.getElementById('pr-marge-box');if(margeBox2)margeBox2.style.gridColumn='';
@@ -1492,11 +1465,10 @@ function rProfs(){
     });
   });
   const c=document.getElementById('profs-list');
-  if(!c)return;
   if(!Object.keys(byProf).length){c.innerHTML='<div class="empty"><div class="ei">👨‍🏫</div><p>Aucune heure saisie ce mois-ci</p></div>';return;}
   let html='';
   Object.entries(byProf).sort((a,b)=>a[0].localeCompare(b[0],'fr')).forEach(([nom,lignes])=>{
-    const prixProf=lignes[0]?.s?.pp||CFG.tarifProf||28;
+    const prixProf=lignes[0]?.s?.pp||CFG.prixProf||28;
     const totalH=lignes.reduce((acc,{l})=>acc+(parseFloat(l.h)||0),0);
     const totalEur=(totalH*prixProf).toFixed(2);
     const profKey=nom+'_'+m+'_'+a;
@@ -1563,7 +1535,6 @@ function setVueSuivi(mode){
 }
 
 function rSuivi(){window._annPyRefs=[];
-  if(!document.getElementById('pl'))return;
   if(vueSuivi==='impaye'){rSuiviImpaye();return;}
   const m=parseInt(document.getElementById('p-mois').value),a=parseInt(document.getElementById('p-an').value);
   const key=m+'_'+a;
@@ -1578,13 +1549,11 @@ function rSuivi(){window._annPyRefs=[];
     tP+=paid;
     if(paid>=t-0.01)nP++;
   });
-  const _ss1=document.getElementById('suivi-stats');if(!_ss1)return;
-  _ss1.innerHTML=`
+  document.getElementById('suivi-stats').innerHTML=`
     <div class="sbox"><div class="v">${tT.toFixed(0)} €</div><div class="l">Total facturé</div></div>
     <div class="sbox g"><div class="v">${tP.toFixed(0)} €</div><div class="l">Encaissé (${nP}/${ss.length})</div></div>
     <div class="sbox o"><div class="v">${Math.max(0,tT-tP).toFixed(0)} €</div><div class="l">En attente</div></div>`;
   const c=document.getElementById('pl');
-  if(!c)return;
   if(!ss.length){c.innerHTML='<div class="empty"><div class="ei">💰</div><p>Aucune facture ce mois-ci</p></div>';return;}
   c.innerHTML=ss.map(s=>{
     const f=S.f[s.fi];
@@ -1613,11 +1582,9 @@ function rSuiviImpaye(){
     });
   }
   const tT=impayees.reduce((acc,{reste,s})=>acc+(reste||sMontant(s)),0);
-  const _ss2=document.getElementById('suivi-stats');if(!_ss2)return;
-  _ss2.innerHTML=`
+  document.getElementById('suivi-stats').innerHTML=`
     <div class="sbox o" style="grid-column:1/-1;"><div class="v">${tT.toFixed(0)} €</div><div class="l">Total impayé ${a} (${impayees.length} facture${impayees.length>1?'s':''})</div></div>`;
   const c=document.getElementById('pl');
-  if(!c)return;
   if(!impayees.length){
     c.innerHTML='<div class="empty"><div class="ei">✅</div><p>Aucune facture impayée en '+a+' !</p></div>';
     return;
@@ -1714,15 +1681,14 @@ function expXLS(){
 
 // ── FAMILLES ──
 function rFam(){
-  if(!document.getElementById('fal'))return;
-  const q=(document.getElementById('fs')?.value||'').toLowerCase();
+  const q=(document.getElementById('fs').value||'').toLowerCase();
   const c=document.getElementById('fal');
   const fams=[...S.f.map((f,ri)=>({f,ri}))].sort((a,b)=>a.f.n.localeCompare(b.f.n,'fr'));
   const filtered=fams.filter(({f})=>!q||f.n.toLowerCase().includes(q)||f.p.toLowerCase().includes(q));
   c.innerHTML=filtered.map(({f,ri})=>{
     const adrStr=fmtAdr(f).join(', ')||'';
     const elevesStr=(f.eleves||[]).join(", ");
-    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span></div></div>`;
+    return`<div class="fli" onclick="editFam(${ri})"><div style="flex:1;min-width:0;"><div style="font-weight:700;">${f.n}</div><div style="font-size:.76rem;color:var(--gris);">${f.p?f.p+' · ':''}${f.i||''}${elevesStr?' · 🎓 '+elevesStr:''}${f.com?' · '+f.com:''}</div>${adrStr?`<div style="font-size:.7rem;color:var(--gris);">${adrStr}</div>`:''}<div style="font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap;">${f.e?`<span style="color:var(--vc);">📧 ${f.e}</span>`:''} ${f.tel?`<span style="color:var(--gris);">📞 ${f.tel}</span>`:''} ${!f.e&&!f.tel?'<span style="color:#ccc;">Pas de contact</span>':''}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;"><span style="font-size:1.2rem;color:var(--gris);">›</span><button class="btn bo bxs" onclick="event.stopPropagation();ouvrirAttestation(${ri})" style="font-size:.65rem;padding:4px 7px;">📜 Attestation</button></div></div>`;
   }).join('');
 }
 
@@ -1755,7 +1721,9 @@ function addFam(){
   ['mf-n','mf-p','mf-rue','mf-cp','mf-vil','mf-e','mf-tel'].forEach(id=>document.getElementById(id).value='');
   renderEleves([]);
   document.getElementById('mf-pr').value='';
+  document.getElementById('mf-tarif').value='';
   document.getElementById('mf-idx').value='';
+  document.getElementById('mf-sap').checked=false;
   document.getElementById('mf-del').style.display='none';
   document.getElementById('m-fam').classList.add('open');
 }
@@ -1773,6 +1741,8 @@ function editFam(idx){
   document.getElementById('mf-pr').value=f.com||'';
   renderEleves(f.eleves||[]);
   document.getElementById('mf-idx').value=idx;
+  document.getElementById('mf-sap').checked=f.sap||false;
+  document.getElementById('mf-tarif').value=f.tarif||'';
   document.getElementById('mf-del').style.display='block';
   document.getElementById('m-fam').classList.add('open');
 }
@@ -1786,7 +1756,9 @@ function valFam(){snapshotS();
     vil:document.getElementById('mf-vil').value.trim(),
     e:document.getElementById('mf-e').value.trim(),
     tel:document.getElementById('mf-tel').value.trim(),
+    sap:document.getElementById('mf-sap').checked,
     com:document.getElementById('mf-pr').value.trim(),
+    tarif:parseFloat(document.getElementById('mf-tarif').value)||0,
     eleves:getEleves()
   };
   const idx=document.getElementById('mf-idx').value;
@@ -1908,24 +1880,17 @@ function genAttestPDF(){
   const idx=curAttestIdx;
   const f=S.f[idx];
   const today=new Date().toLocaleDateString('fr-FR');
+  const rep=CFG.repNom||'[Nom du représentant]';
+  const titre=CFG.repTitre||'Présidente';
 
-  // ── Même calcul que l'aperçu HTML : fraterie + py_parts + statut partiel ──
-  const nomFamille=S.f[idx]?.n;
-  const idxFraterie=S.f.map((ff,i)=>ff.n===nomFamille?i:-1).filter(i=>i>=0);
   let totalAnnuel=0,nbMois=0;
-  idxFraterie.forEach(fi=>{
-    for(let m=1;m<=12;m++){
-      const key=m+'_'+annee;
-      const s=(S.s[key]||[]).find(s=>s.fi===fi);
-      if(!s||!sTotal(s))continue;
-      const py=S.py[s.num]||{};
-      if(py.st==='payé'||py.st==='partiel'){
-        const parts=(S.py_parts||{})[s.num]||[];
-        const paid=parts.length?parts.reduce((a,p)=>a+parseFloat(p.montant||0),0):parseFloat(py.m2||0)||sMontant(s);
-        totalAnnuel+=paid;nbMois++;
-      }
-    }
-  });
+  for(let m=1;m<=12;m++){
+    const key=m+'_'+annee;
+    const s=(S.s[key]||[]).find(s=>s.fi===idx);
+    if(!s||!sTotal(s))continue;
+    const py=S.py[s.num]||{};
+    if(py.st==='payé'){totalAnnuel+=sMontant(s);nbMois++;}
+  }
   if(nbMois===0){alert('Aucun paiement confirmé pour cette famille en '+annee+'.\nMarque les paiements dans l\'onglet Paiements d\'abord.');return;}
 
   const{jsPDF}=window.jspdf;
@@ -1998,7 +1963,7 @@ function genAttestPDF(){
   // LOGO SAP juste après la signature (hauteur fixe 20mm, texte 24mm plus bas)
   const yLogoA=y+10;
   try{
-    const imgA=new Image();imgA.src=SAP_LOGO;
+    const imgA=new Image();imgA.src=CFG.sapLogo||SAP_LOGO;
     const canvA=document.createElement('canvas');
     canvA.width=imgA.width||200;canvA.height=imgA.height||150;
     const ctxA=canvA.getContext('2d');ctxA.clearRect(0,0,canvA.width,canvA.height);ctxA.drawImage(imgA,0,0);
@@ -2006,7 +1971,7 @@ function genAttestPDF(){
     doc.addImage(pngA,'PNG',79,yLogoA,52,20);
   }catch(e){}
   doc.setFontSize(8.5);doc.setTextColor(30,64,175);doc.setFont('helvetica','bold');
-  doc.text('-50% de réduction ou crédit d\'impôts',105,yLogoA+24,{align:'center'});
+  doc.text(CFG.sap2||'-50% de réduction ou crédit d\'impôts',105,yLogoA+24,{align:'center'});
   doc.save(`${f.n.replace(/[^A-Za-z0-9]/g,'_')}_${annee}.pdf`);
 }
 
@@ -2021,66 +1986,7 @@ function sendMailAttestation(){
 }
 
 // ── RÉGLAGES ──
-
-// ── PROFS (réglages) ──
-function rProfsReglages(){
-  const c=document.getElementById('profs-list-reglages');
-  if(!c)return;
-  const profs=S.profs||[];
-  if(!profs.length){c.innerHTML='<div style="font-size:.83rem;color:var(--gris);text-align:center;padding:10px 0;">Aucun prof. Appuie sur "+ Nouveau prof".</div>';return;}
-  c.innerHTML=profs.map((nom,i)=>`
-    <div class="fli" onclick="editProf(${i})" style="cursor:pointer;">
-      <div style="flex:1;"><span style="font-weight:700;">👨‍🏫 ${nom}</span></div>
-      <span style="font-size:1.1rem;color:var(--gris);">›</span>
-    </div>`).join('');
-}
-function addProf(){
-  document.getElementById('m-prof-titre').textContent='Ajouter un prof';
-  document.getElementById('mp-nom').value='';
-  document.getElementById('mp-old').value='';
-  document.getElementById('mp-del').style.display='none';
-  document.getElementById('m-prof').classList.add('open');
-}
-function editProf(i){
-  const nom=(S.profs||[])[i]||'';
-  document.getElementById('m-prof-titre').textContent='Modifier '+nom;
-  document.getElementById('mp-nom').value=nom;
-  document.getElementById('mp-old').value=nom;
-  document.getElementById('mp-del').style.display='block';
-  document.getElementById('m-prof').classList.add('open');
-}
-function valProf(){snapshotS();
-  const nom=document.getElementById('mp-nom').value.trim();
-  const old=document.getElementById('mp-old').value;
-  if(!nom){alert('Saisis le nom du prof.');return;}
-  if(!S.profs)S.profs=[];
-  if(old){
-    const i=S.profs.indexOf(old);
-    if(i>=0)S.profs[i]=nom;else S.profs.push(nom);
-    // Mettre à jour les saisies existantes
-    for(const key of Object.keys(S.s)){
-      (S.s[key]||[]).forEach(s=>{
-        if(s.i===old)s.i=nom;
-        if(s.lignes)s.lignes.forEach(l=>{if(l.i===old)l.i=nom;});
-      });
-    }
-  } else {
-    if(!S.profs.includes(nom))S.profs.push(nom);
-  }
-  CODES[nom]=(nom.substring(0,2)).toUpperCase();
-  save();cm('m-prof');rProfsReglages();
-}
-function delProf(){snapshotS();
-  const old=document.getElementById('mp-old').value;
-  if(!confirm('Supprimer '+old+' ? Les saisies existantes conserveront son nom.'))return;
-  if(S.profs){const i=S.profs.indexOf(old);if(i>=0)S.profs.splice(i,1);}
-  delete CODES[old];
-  save();cm('m-prof');rProfsReglages();
-}
 function rReglages(){
-  const _tfEl=document.getElementById('cfg-tarif-famille');if(_tfEl)_tfEl.value=CFG.tarifFamille||35;
-  const _tpEl=document.getElementById('cfg-tarif-prof');if(_tpEl)_tpEl.value=CFG.tarifProf||28;
-  rProfsReglages();
   document.getElementById('cfg-nom').value=CFG.nom||'';
   document.getElementById('cfg-adr').value=CFG.adr||'';
   document.getElementById('cfg-adr2').value=CFG.adr2||'';
@@ -2107,14 +2013,11 @@ function saveCFG(){snapshotS();
   CFG.iban=document.getElementById('cfg-iban').value.trim()||CFG_DEF.iban;
   CFG.repNom=document.getElementById('cfg-rep-nom').value.trim();
   CFG.adr2=document.getElementById('cfg-adr2').value.trim();
-  const _tfV=document.getElementById('cfg-tarif-famille');if(_tfV)CFG.tarifFamille=parseFloat(_tfV.value)||35;
-  const _tpV=document.getElementById('cfg-tarif-prof');if(_tpV)CFG.tarifProf=parseFloat(_tpV.value)||28;
-  save();
+  save(); // Sauvegarder dans JSONBin
   alert('✅ Informations sauvegardées !');
 }
 function rCodes(){
   const c=document.getElementById('codes-list');
-  if(!c)return;
   c.innerHTML=Object.entries(CODES).map(([nom,code])=>`
     <div class="fli" onclick="editCode('${nom}')">
       <div style="flex:1;"><span style="font-weight:700;">${nom}</span></div>
@@ -2173,7 +2076,8 @@ function rAttestations(){
   if(!c)return;
   // Clients SAP ayant des paiements dans l'année
   const clients=S.f.map((f,idx)=>({f,idx})).filter(({f,idx})=>{
-    // Toutes les familles avec au moins un paiement dans l'année
+    if(!f.sap)return false;
+    // Vérifier si au moins un paiement dans l'année
     for(let m=1;m<=12;m++){
       const key=m+'_'+a;
       const s=(S.s[key]||[]).find(s=>s.fi===idx);
@@ -2186,7 +2090,7 @@ function rAttestations(){
   }).sort((a,b)=>a.f.n.localeCompare(b.f.n,'fr'));
 
   if(!clients.length){
-    c.innerHTML='<div class="empty"><div class="ei">📜</div><p>Aucune famille avec paiements en '+a+'.</p></div>';
+    c.innerHTML='<div class="empty"><div class="ei">📜</div><p>Aucun client SAP avec paiements en '+a+'.</p></div>';
     return;
   }
   c.innerHTML=clients.map(({f,idx})=>{

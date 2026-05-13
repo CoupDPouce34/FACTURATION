@@ -307,6 +307,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <div class="ctitle">💾 Sauvegarde</div>
       <div style="font-size:.8rem;color:var(--gris);margin-bottom:11px;line-height:1.5;">Exporte toutes tes données pour les sauvegarder ou les transférer sur un autre appareil.</div>
       <button class="btn bv bfull bsm" onclick="expData()">📤 Exporter toutes les données</button>
+      <button class="btn bv bfull bsm" style="background:#059669;margin-top:6px;" onclick="expLocalStorage()">💾 Exporter une sauvegarde JSON</button>
       <button class="btn bo bfull bsm" onclick="document.getElementById('imp-file').click()">📂 Importer des données</button>
       <input type="file" id="imp-file" accept=".json" style="display:none" onchange="impData(event)">
     </div>
@@ -490,13 +491,28 @@ const JB_BIN='69c10e22aa77b81da90e4daa';
 const JB_KEY='$2a$10$RfMev.tvf7uCmbBDJ9fuQ..mBOY5KPBAodSW5/tdRd5WBU/lgtN42';
 const JB_URL=`https://api.jsonbin.io/v3/b/${JB_BIN}`;
 
+// Timestamp du dernier état connu depuis JSONBin (pour détecter les modifications distantes)
+let _lastRemoteTs=0;
+let _pollTimer=null;
+
 function showSync(msg,ok){
   const el=document.getElementById('sync-indicator');
   if(!el)return;
-  // Compact display
-  const short=ok?(msg.includes('Synchronisé')?'☁️':msg.includes('ligne')?'📵':msg):(msg.includes('Sync')||msg.includes('Charge')?'🔄':msg);
+  const short=ok?(msg==='☁️'?'☁️':msg):(msg==='🔄'?'🔄':'⚠️');
   el.textContent=short;
   el.style.color=ok?'rgba(255,255,255,.8)':'var(--warn)';
+}
+
+function jbGet(){return fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}}).then(r=>r.json()).then(res=>res.record||{});}
+function jbPut(d){return fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:JSON.stringify(d)});}
+
+function applyRemote(remote){
+  if(!remote||!remote.f||!remote.f.length)return;
+  S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
+  S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
+  if(remote.codes&&Object.keys(remote.codes).length>0)CODES=remote.codes;
+  if(remote.cfg&&remote.cfg.nom)CFG={...CFG_DEF,...remote.cfg};
+  if(remote.ts)_lastRemoteTs=remote.ts;
 }
 
 // ── Fusion sans perte de données ──
@@ -522,8 +538,7 @@ function mergeData(a,b){
   if(b.cfg&&b.cfg.nom)m.cfg={...CFG_DEF,...(m.cfg||{}),...b.cfg};
   return m;
 }
-function jbGet(){return fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}}).then(r=>r.json()).then(res=>res.record||{});}
-function jbPut(d){return fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:JSON.stringify(d)});}
+
 function save(){
   if(!S.f||S.f.length===0)return;
   showSync('🔄',false);
@@ -532,18 +547,40 @@ function save(){
     const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
     merged.ts=Date.now();
     S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;
+    _lastRemoteTs=merged.ts;
     return jbPut(merged);
   }).then(r=>showSync(r.ok?'☁️':'⚠️',r.ok)).catch(()=>showSync('📵',false));
 }
 
-function applyRemote(remote){
-  if(!remote||!remote.f||!remote.f.length)return;
-  S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
-  S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
-  if(remote.codes&&Object.keys(remote.codes).length>0)CODES=remote.codes;
-  if(remote.cfg&&remote.cfg.nom)CFG={...CFG_DEF,...remote.cfg};
+// ── Polling : détecte les modifications d'un autre utilisateur toutes les 30s ──
+function startPolling(){
+  if(_pollTimer)clearInterval(_pollTimer);
+  _pollTimer=setInterval(()=>{
+    // Seulement si l'onglet est visible et pas de sync en cours
+    if(document.hidden)return;
+    fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}})
+      .then(r=>r.json())
+      .then(res=>{
+        const remote=res.record||{};
+        if(!remote||!remote.f||!remote.f.length)return;
+        const remoteTs=remote.ts||0;
+        // Si le timestamp distant est plus récent que le dernier connu → un autre user a modifié
+        if(remoteTs>_lastRemoteTs+1000){
+          _lastRemoteTs=remoteTs;
+          applyRemote(remote);
+          // Rafraîchir toutes les vues
+          rFact();rSuivi();
+          if(document.querySelector('#pg-profs.active'))rProfs();
+          if(document.querySelector('#pg-familles.active'))rFam();
+          if(document.querySelector('#pg-saisie.active'))rSaisie();
+          if(document.querySelector('#pg-reglages.active'))rReglages();
+          if(document.querySelector('#pg-attestations.active'))rAttestations();
+          showSync('☁️',true);
+        }
+      })
+      .catch(()=>{});
+  },30000);
 }
-
 
 // Helper: build address string from family object
 function fmtAdr(f){
@@ -602,7 +639,7 @@ function updateUndoBtn(){
 function goBack(){
   if(undoStack.length===0)return;
   S=undoStack.pop();
-  // Sauvegarder l'état restauré
+  // Sauvegarder l'état restauré dans JSONBin
   save();
   updateUndoBtn();
   // Rafraîchir la vue courante
@@ -648,7 +685,7 @@ function ga(){
 function gk(){return gm()+'_'+ga();}
 
 function init(){
-  // Remplir les selects d'année dynamiquement (100 ans)
+  // ── Remplir les selects d'année dynamiquement (pas de localStorage) ──
   const now=new Date();
   const curA=now.getFullYear();
   const anneeIds=['s-an','f-an','p-an','p-an-imp','at-annee','atl-annee','pr-an','pr-an-imp'];
@@ -670,14 +707,18 @@ function init(){
 
   // ── CHARGEMENT : JSONBin = source de vérité unique ──
   showSync('🔄',false);
-  document.getElementById('fl').innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
+  const flEl=document.getElementById('fl');
+  if(flEl)flEl.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
   jbGet().then(remote=>{
     if(remote&&remote.f&&remote.f.length){
       applyRemote(remote);
     }
-    rFact();
+    rFact();rSuivi();
+    if(document.querySelector('#pg-familles.active'))rFam();
+    if(document.querySelector('#pg-profs.active'))rProfs();
     showSync('☁️',true);
-  }).catch(()=>{showSync('📵',false);rFact();});
+    startPolling();
+  }).catch(()=>{showSync('📵',false);rFact();startPolling();});
   updateUndoBtn();
 }
 
@@ -2107,6 +2148,15 @@ function supprimerAttestation(idx,a){
   save();rAttestations();
 }
 
+function expLocalStorage(){
+  // Export des données actuelles (depuis JSONBin/mémoire)
+  const data={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},codes:CODES,cfg:CFG,ts:Date.now()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='CoupDPouce_Backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  alert('✅ Sauvegarde exportée !');
+}
 
 function expData(){
   const data={familles:S.f,saisies:S.s,paiements:S.py,cfg:CFG,codes:CODES};
@@ -2119,18 +2169,16 @@ function impData(event){
   const reader=new FileReader();
   reader.onload=e=>{try{snapshotS();
     const d=JSON.parse(e.target.result);
-    // Format backup (clés cdp3, cdp3_cfg)
-    if(d.cdp3){
-      const inner=JSON.parse(d.cdp3);
-      S.f=inner.f||[];S.s=inner.s||{};S.py=inner.py||{};
-      S.py_parts=inner.py_parts||{};S.pyp=inner.pyp||{};S.pyp_parts=inner.pyp_parts||{};
-      if(d.cdp3_cfg){CFG={...CFG_DEF,...JSON.parse(d.cdp3_cfg)};}
-      const ts=d.cdp3_ts?parseInt(d.cdp3_ts):Date.now();
-      S.ts=ts;
-      save();rReglages();rFact();alert('✅ Données restaurées ! ('+S.f.length+' familles, '+Object.keys(S.s).length+' mois)');
+    // Format backup standard (f, s, py, py_parts…)
+    if(d.f&&Array.isArray(d.f)){
+      S.f=d.f;S.s=d.s||{};S.py=d.py||{};
+      S.py_parts=d.py_parts||{};S.pyp=d.pyp||{};S.pyp_parts=d.pyp_parts||{};
+      if(d.codes&&Object.keys(d.codes).length>0)CODES=d.codes;
+      if(d.cfg&&d.cfg.nom)CFG={...CFG_DEF,...d.cfg};
+      save();rReglages();rFact();alert('✅ Données importées avec succès ! ('+S.f.length+' familles)');
       return;
     }
-    // Format export standard (familles, saisies, paiements)
+    // Ancien format (familles, saisies, paiements)
     if(d.familles)S.f=d.familles;
     if(d.saisies)S.s=d.saisies;
     if(d.paiements)S.py=d.paiements;

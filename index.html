@@ -555,6 +555,9 @@ function mergeData(a,b){
     else for(const rp of bPypP[k])if(!m.pyp_parts[k].find(ep=>ep.d===rp.d&&String(ep.montant)===String(rp.montant)))m.pyp_parts[k].push(rp);}
   if(Object.keys(b.codes||{}).length>Object.keys(m.codes||{}).length)m.codes=b.codes;
   if(b.cfg&&b.cfg.nom)m.cfg={...CFG_DEF,...(m.cfg||{}),...b.cfg};
+  // Fusionner profs (union sans doublon)
+  const aProfs=m.profs||[];const bProfs=b.profs||[];
+  m.profs=[...new Set([...aProfs,...bProfs])];
   return m;
 }
 
@@ -1277,8 +1280,8 @@ function mkPDF(s,f,m,a,tot){
   y+=7;
   doc.setTextColor(40);doc.setFont('helvetica','normal');
   doc.text('IBAN : '+CFG.iban,18,y);
-  // LOGO SAP + mention : uniquement si client coché SAP
-  if(f.sap){
+  // LOGO SAP (toujours affiché)
+  {
     const yLogo=y+12;
     try{
       const logoSrc=CFG.sapLogo||SAP_LOGO;

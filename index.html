@@ -544,7 +544,9 @@ function mergeData(a,b){
   const bPypP=b.pyp_parts||{};for(const k of Object.keys(bPypP)){if(!m.pyp_parts[k])m.pyp_parts[k]=bPypP[k];
     else for(const rp of bPypP[k])if(!m.pyp_parts[k].find(ep=>ep.d===rp.d&&String(ep.montant)===String(rp.montant)))m.pyp_parts[k].push(rp);}
   if(Object.keys(b.codes||{}).length>Object.keys(m.codes||{}).length)m.codes=b.codes;
-  if(b.cfg&&b.cfg.nom)m.cfg={...CFG_DEF,...(m.cfg||{}),...b.cfg};
+  // cfg : le local (a) prime toujours sur le remote (b) — on garde m.cfg s'il existe
+  if(b.cfg&&b.cfg.nom&&!m.cfg)m.cfg={...CFG_DEF,...b.cfg};
+  else if(m.cfg&&b.cfg)m.cfg={...CFG_DEF,...b.cfg,...m.cfg};
   // Fusionner profs (union sans doublon, préserver la liste la plus longue)
   const aP=m.profs||[];const bP=b.profs||[];
   m.profs=aP.length>=bP.length?[...new Set([...aP,...bP])]:[...new Set([...bP,...aP])];
@@ -898,35 +900,34 @@ function openS(idx){
 
 function mkBlocHTML(l, i, total, f){
   const hasEleves=f&&f.eleves&&f.eleves.length>0;
-  const eleveOpts=hasEleves?f.eleves.map(e=>`<option value="${e}" ${l.eleve===e?'selected':''}>${e}</option>`).join(''):'';
   const showX=total>1;
-  return `<div data-ligne="${i}" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">🎓 Élève ${total>1?i+1:''}</div>
-      ${showX?`<button onclick="this.closest('[data-ligne]').remove()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--danger);padding:0;line-height:1;">✕</button>`:''}
-    </div>
-    ${hasEleves?`<div class="field"><label class="sl">Élève</label>
-      <select id="ms-eleve-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>${eleveOpts}</select>
-    </div>`:''}
-    <div class="field"><label class="sl">Prestations</label><input type="text" id="ms-prest-${i}" value="${l.prestation||'Cours à domicile'}" placeholder="Cours à domicile"></div>
-    <div class="field"><label class="sl">Prof</label>
-      <select id="ms-i-${i}" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;">
-        <option value="">-- Choisir un prof --</option>
-        ${Object.keys(CODES).map(nom=>`<option value="${nom}" ${l.i===nom?'selected':''}}>${nom}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field">
-      <label class="sl">Heures</label>
-      <div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--bord);border-radius:10px;overflow:hidden;background:#fff;width:fit-content;">
-        <button type="button" onclick="(function(){const el=document.getElementById('ms-h-${i}');const v=parseFloat(el.value)||0;el.value=Math.max(0,v-0.25).toString();})()" style="background:#f0f4ff;border:none;border-right:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">−</button>
-        <input type="number" id="ms-h-${i}" value="${l.h||''}" min="0" step="0.25" placeholder="0" style="width:64px;border:none;text-align:center;font-size:1.1rem;font-weight:700;padding:0;height:44px;background:#fff;-moz-appearance:textfield;outline:none;">
-        <button type="button" onclick="(function(){const el=document.getElementById('ms-h-${i}');const v=parseFloat(el.value)||0;el.value=(v+0.25).toString();})()" style="background:#f0f4ff;border:none;border-left:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>
-      </div>
-    </div>
-    <div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-${i}" value="${l.d||''}" placeholder="ex: 4, 11, 18 mars"></div>
-  </div>`;
+  const btnSuppr=showX?'<button onclick="supprimerLigne('+i+')" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--danger);padding:0;line-height:1;">&#x2715;</button>':'';
+  let eleveHTML='';
+  if(hasEleves){
+    const opts=f.eleves.map(function(e){return '<option value="'+e+'" '+(l.eleve===e?'selected':'')+'>'+e+'</option>';}).join('');
+    eleveHTML='<div class="field"><label class="sl">El&#232;ve</label><select id="ms-eleve-'+i+'" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir --</option>'+opts+'</select></div>';
+  }
+  const profOpts=Object.keys(CODES).map(function(nom){return '<option value="'+nom+'" '+(l.i===nom?'selected':'')+'>'+nom+'</option>';}).join('');
+  const profHTML='<div class="field"><label class="sl">Prof</label><select id="ms-i-'+i+'" style="width:100%;padding:10px 11px;border:1.5px solid var(--bord);border-radius:10px;font-size:.92rem;background:#fff;-webkit-appearance:none;"><option value="">-- Choisir un prof --</option>'+profOpts+'</select></div>';
+  const prestVal=(l.prestation||'Cours \u00e0 domicile').replace(/"/g,'&quot;');
+  const prestHTML='<div class="field"><label class="sl">Prestations</label><input type="text" id="ms-prest-'+i+'" value="'+prestVal+'" placeholder="Cours \u00e0 domicile"></div>';
+  const hVal=l.h||'';
+  const dVal=(l.d||'').replace(/"/g,'&quot;');
+  var html='<div data-ligne="'+i+'" style="background:#eff6ff;border:1.5px solid var(--bord);border-radius:10px;padding:12px 12px 8px;margin-bottom:8px;">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">';
+  html+='<div style="font-size:.72rem;font-weight:700;color:var(--v);text-transform:uppercase;letter-spacing:.4px;">&#x1F393; El&#232;ve '+(total>1?i+1:'')+'</div>';
+  html+=btnSuppr+'</div>';
+  html+=eleveHTML+profHTML+prestHTML;
+  html+='<div class="field"><label class="sl">Heures</label>';
+  html+='<div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--bord);border-radius:10px;overflow:hidden;background:#fff;width:fit-content;">';
+  html+='<button type="button" onclick="(function(){var el=document.getElementById('+JSON.stringify('ms-h-'+i)+');var v=parseFloat(el.value)||0;el.value=Math.max(0,v-0.25).toString();})()" style="background:#f0f4ff;border:none;border-right:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">&#x2212;</button>';
+  html+='<input type="number" id="ms-h-'+i+'" value="'+hVal+'" min="0" step="0.25" placeholder="0" style="width:64px;border:none;text-align:center;font-size:1.1rem;font-weight:700;padding:0;height:44px;background:#fff;-moz-appearance:textfield;outline:none;">';
+  html+='<button type="button" onclick="(function(){var el=document.getElementById('+JSON.stringify('ms-h-'+i)+');var v=parseFloat(el.value)||0;el.value=(v+0.25).toString();})()" style="background:#f0f4ff;border:none;border-left:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>';
+  html+='</div></div>';
+  html+='<div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-'+i+'" value="'+dVal+'" placeholder="ex: 4, 11, 18 mars"></div>';
+  html+='</div>';
+  return html;
 }
-
 function renderLignes(lignes,f){
   const c=document.getElementById('ms-lignes');
   c.innerHTML=lignes.map((l,i)=>mkBlocHTML(l,i,lignes.length,f)).join('');
@@ -2066,8 +2067,24 @@ function saveCFG(){
   window._cfgSaveTimer=setTimeout(()=>{snapshotS();save();},300);
 }
 function saveCFGNow(){
-  saveCFG();
+  // Lire tous les champs et mettre à jour CFG immédiatement
+  CFG.nom=document.getElementById('cfg-nom').value.trim()||CFG_DEF.nom;
+  CFG.adr=document.getElementById('cfg-adr').value.trim()||CFG_DEF.adr;
+  CFG.adr2=document.getElementById('cfg-adr2').value.trim();
+  CFG.tel=document.getElementById('cfg-tel').value.trim();
+  CFG.email=document.getElementById('cfg-email').value.trim()||CFG_DEF.email;
+  CFG.siren=document.getElementById('cfg-siren').value.trim()||CFG_DEF.siren;
+  CFG.sap=document.getElementById('cfg-sap').value.trim()||CFG_DEF.sap;
+  CFG.sap2=document.getElementById('cfg-sap2').value.trim()||CFG_DEF.sap2;
+  CFG.iban=document.getElementById('cfg-iban').value.trim()||CFG_DEF.iban;
+  CFG.repNom=document.getElementById('cfg-rep-nom').value.trim();
+  const pF=parseFloat(document.getElementById('cfg-prix-famille').value);
+  const pP=parseFloat(document.getElementById('cfg-prix-prof').value);
+  if(!isNaN(pF)&&pF>0)CFG.prixFamille=pF;
+  if(!isNaN(pP)&&pP>0)CFG.prixProf=pP;
+  // Annuler le debounce en cours
   if(window._cfgSaveTimer){clearTimeout(window._cfgSaveTimer);window._cfgSaveTimer=null;}
+  // Sauvegarder immédiatement dans JSONBin
   snapshotS();save();
 }
 function rCodes(){

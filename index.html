@@ -517,6 +517,8 @@ function applyRemote(remote){
     S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
     S.profs=remote.profs||[];
   }
+  // Toujours charger les tombstones même si f est vide
+  S.deleted_nums=remote.deleted_nums||[];
   if(remote.codes&&Object.keys(remote.codes).length>0){CODES=remote.codes;
     if(S.profs.length===0)S.profs=Object.keys(CODES);
   }
@@ -524,9 +526,20 @@ function applyRemote(remote){
   if(remote.ts)_lastRemoteTs=remote.ts;
 }
 
+// ── Tombstones : numéros de factures supprimées — jamais résurrectées par mergeData ──
+function addTombstone(num){
+  if(!num)return;
+  if(!S.deleted_nums)S.deleted_nums=[];
+  if(!S.deleted_nums.includes(String(num)))S.deleted_nums.push(String(num));
+}
+
 // ── Fusion sans perte de données ──
 function mergeData(a,b){
   const m=JSON.parse(JSON.stringify(a));
+  // Union des tombstones des deux côtés : une suppression est définitive pour tous les utilisateurs
+  const dead=new Set([...(m.deleted_nums||[]),...(b.deleted_nums||[])]);
+  m.deleted_nums=[...dead];
+
   if((b.f||[]).length>(m.f||[]).length)m.f=b.f;
   if(m.f&&b.f){m.f=m.f.map((fa,i)=>{const fb=b.f[i];if(!fb)return fa;
     return{...fa,p:fa.p||fb.p,rue:fa.rue||fb.rue,cp:fa.cp||fb.cp,vil:fa.vil||fb.vil,
@@ -534,11 +547,17 @@ function mergeData(a,b){
       eleves:[...new Set([...(fa.eleves||[]),...(fb.eleves||[])])],
       attestEnvoye:{...(fb.attestEnvoye||{}),...(fa.attestEnvoye||{})},
       attestEnvoyeDate:{...(fb.attestEnvoyeDate||{}),...(fa.attestEnvoyeDate||{})}};});}
+  // Saisies : ne jamais réinjecter un num tombstoné
   const bS=b.s||{};for(const key of Object.keys(bS)){if(!m.s[key])m.s[key]=[];
-    for(const bs of bS[key]){const ex=m.s[key].find(ls=>ls.num&&ls.num===bs.num);
+    for(const bs of bS[key]){
+      if(bs.num&&dead.has(String(bs.num)))continue; // supprimé → ignorer définitivement
+      const ex=m.s[key].find(ls=>ls.num&&ls.num===bs.num);
       if(!ex)m.s[key].push(bs);else{ex.envoye=ex.envoye||bs.envoye;ex.envoyeDate=ex.envoyeDate||bs.envoyeDate;}}}
-  const bPy=b.py||{};for(const k of Object.keys(bPy))if(!m.py[k])m.py[k]=bPy[k];
-  const bPyP=b.py_parts||{};for(const k of Object.keys(bPyP)){if(!m.py_parts[k])m.py_parts[k]=bPyP[k];
+  // Paiements : ne jamais réinjecter un num tombstoné
+  const bPy=b.py||{};for(const k of Object.keys(bPy))if(!dead.has(String(k))&&!m.py[k])m.py[k]=bPy[k];
+  const bPyP=b.py_parts||{};for(const k of Object.keys(bPyP)){
+    if(dead.has(String(k)))continue;
+    if(!m.py_parts[k])m.py_parts[k]=bPyP[k];
     else for(const rp of bPyP[k])if(!m.py_parts[k].find(ep=>ep.d===rp.d&&String(ep.montant)===String(rp.montant)))m.py_parts[k].push(rp);}
   const bPyp=b.pyp||{};for(const k of Object.keys(bPyp))if(!m.pyp[k])m.pyp[k]=bPyp[k];
   const bPypP=b.pyp_parts||{};for(const k of Object.keys(bPypP)){if(!m.pyp_parts[k])m.pyp_parts[k]=bPypP[k];
@@ -555,11 +574,11 @@ function mergeData(a,b){
 
 function save(){
   showSync('🔄',false);
-  const local={f:S.f||[],s:S.s||{},py:S.py||{},py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG};
+  const local={f:S.f||[],s:S.s||{},py:S.py||{},py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG,deleted_nums:S.deleted_nums||[]};
   jbGet().then(remote=>{
     const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
     merged.ts=Date.now();
-    if(merged.f&&merged.f.length){S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;}
+    if(merged.f&&merged.f.length){S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;S.deleted_nums=merged.deleted_nums||[];}
     _lastRemoteTs=merged.ts;
     return jbPut(merged);
   }).then(r=>showSync(r.ok?'☁️':'⚠️',r.ok)).catch(()=>showSync('📵',false));
@@ -1054,8 +1073,8 @@ function supprimerFacture(fi,m,a){
     const idx=S.s[key].findIndex(s=>s.fi===fi);
     if(idx>=0){
       const s=S.s[key][idx];
-      // Supprimer aussi les paiements liés
-      if(s.num){delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}
+      // Enregistrer le tombstone AVANT la suppression pour bloquer toute résurrection par mergeData
+      if(s.num){addTombstone(s.num);delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}
       S.s[key].splice(idx,1);
     }
   }
@@ -2250,7 +2269,7 @@ function supprimerAttestation(idx,a){
   snapshotS();
   for(let m=1;m<=12;m++){
     const key=m+'_'+a;
-    if(S.s[key]){const i=S.s[key].findIndex(s=>s.fi===idx);if(i>=0){const s=S.s[key][i];if(s.num){delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}S.s[key].splice(i,1);}}
+    if(S.s[key]){const i=S.s[key].findIndex(s=>s.fi===idx);if(i>=0){const s=S.s[key][i];if(s.num){addTombstone(s.num);delete S.py[s.num];if(S.py_parts)delete S.py_parts[s.num];}S.s[key].splice(i,1);}}
   }
   save();rAttestations();
 }

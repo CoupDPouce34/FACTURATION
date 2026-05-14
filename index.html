@@ -283,10 +283,18 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
       <div class="field"><label class="sl">IBAN</label><input type="text" id="cfg-iban"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">💶 Tarifs</div>
+      <div class="field"><label class="sl">Tarif famille (€/h)</label><input type="number" id="cfg-prix-famille" min="0" step="0.5" placeholder="35"></div>
+      <div class="field"><label class="sl">Tarif prof (€/h)</label><input type="number" id="cfg-prix-prof" min="0" step="0.5" placeholder="28"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">✍️ Représentant légal (pour attestations)</div>
       <div class="field"><label class="sl">Nom complet du représentant</label><input type="text" id="cfg-rep-nom" placeholder="ex: Mairi OIKONOMOU"></div>
       <button class="btn bv bfull bsm" onclick="saveCFG()">💾 Sauvegarder les infos</button>
+    </div>
+    <div class="card">
+      <div class="ctitle">👨‍🏫 Intervenants (profs)</div>
+      <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;">Liste des intervenants disponibles dans les saisies de cours.</div>
+      <div id="codes-list"></div>
+      <button class="btn bv bfull bsm" style="margin-top:8px;" onclick="addCode()">➕ Ajouter un intervenant</button>
     </div>
     <div class="card">
       <div class="ctitle">🏷️ SAP (Service à la Personne)</div>
@@ -507,10 +515,12 @@ function jbGet(){return fetch(JB_URL+'/latest',{headers:{'X-Master-Key':JB_KEY}}
 function jbPut(d){return fetch(JB_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':JB_KEY},body:JSON.stringify(d)});}
 
 function applyRemote(remote){
-  if(!remote||!remote.f||!remote.f.length)return;
-  S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
-  S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
-  S.profs=remote.profs||[];
+  if(!remote)return;
+  if(remote.f&&remote.f.length){
+    S.f=remote.f;S.s=remote.s||{};S.py=remote.py||{};
+    S.py_parts=remote.py_parts||{};S.pyp=remote.pyp||{};S.pyp_parts=remote.pyp_parts||{};
+    S.profs=remote.profs||[];
+  }
   if(remote.codes&&Object.keys(remote.codes).length>0){CODES=remote.codes;
     if(S.profs.length===0)S.profs=Object.keys(CODES);
   }
@@ -546,13 +556,12 @@ function mergeData(a,b){
 }
 
 function save(){
-  if(!S.f||S.f.length===0)return;
   showSync('🔄',false);
-  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG};
+  const local={f:S.f||[],s:S.s||{},py:S.py||{},py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG};
   jbGet().then(remote=>{
     const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
     merged.ts=Date.now();
-    S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;
+    if(merged.f&&merged.f.length){S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;}
     _lastRemoteTs=merged.ts;
     return jbPut(merged);
   }).then(r=>showSync(r.ok?'☁️':'⚠️',r.ok)).catch(()=>showSync('📵',false));
@@ -715,9 +724,7 @@ function init(){
   showSync('🔄',false);
   document.getElementById('fl').innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement...</p></div>';
   jbGet().then(remote=>{
-    if(remote&&remote.f&&remote.f.length){
-      applyRemote(remote);
-    }
+    applyRemote(remote);
     rFact();
     showSync('☁️',true);
     startPolling();
@@ -1997,6 +2004,8 @@ function rReglages(){
   document.getElementById('cfg-sap2').value=CFG.sap2||'';
   document.getElementById('cfg-iban').value=CFG.iban||'';
   document.getElementById('cfg-rep-nom').value=CFG.repNom||'';
+  document.getElementById('cfg-prix-famille').value=CFG.prixFamille||35;
+  document.getElementById('cfg-prix-prof').value=CFG.prixProf||28;
   // Preview logo SAP
   const sapPrev=document.getElementById('sap-logo-preview');
   if(sapPrev&&(CFG.sapLogo||SAP_LOGO)){sapPrev.src=CFG.sapLogo||SAP_LOGO;sapPrev.style.display='block';}
@@ -2013,6 +2022,10 @@ function saveCFG(){snapshotS();
   CFG.iban=document.getElementById('cfg-iban').value.trim()||CFG_DEF.iban;
   CFG.repNom=document.getElementById('cfg-rep-nom').value.trim();
   CFG.adr2=document.getElementById('cfg-adr2').value.trim();
+  const pF=parseFloat(document.getElementById('cfg-prix-famille').value);
+  const pP=parseFloat(document.getElementById('cfg-prix-prof').value);
+  if(!isNaN(pF)&&pF>0)CFG.prixFamille=pF;
+  if(!isNaN(pP)&&pP>0)CFG.prixProf=pP;
   save(); // Sauvegarder dans JSONBin
   alert('✅ Informations sauvegardées !');
 }

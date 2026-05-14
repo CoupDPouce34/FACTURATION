@@ -1256,44 +1256,56 @@ function mkPDF(s,f,m,a,tot){
   doc.text('FACTURE N° '+(s.num||'—'),105,y,{align:'center'});
   doc.setDrawColor(30,64,175);doc.setLineWidth(0.6);doc.line(18,y+3,193,y+3);
   doc.setFont('helvetica','normal');y+=14;
-  // TABLEAU en bleu
+  // TABLEAU — colonnes : début + largeur, somme = 175mm (18→193)
   const cols=[18,68,93,113,135,160],cw=[50,25,20,22,25,33];
   const rh=9;
+  // En-tête : fond bleu puis bordures de chaque cellule par-dessus
   doc.setFillColor(30,64,175);doc.rect(18,y,175,rh,'F');
+  doc.setDrawColor(30,64,175);doc.setLineWidth(0.3);
+  cols.forEach((x,i)=>doc.rect(x,y,cw[i],rh));
   doc.setTextColor(255);doc.setFontSize(8);doc.setFont('helvetica','bold');
-  ['Prestations','Prof','Mois','Nb h','Prix U.','Total'].forEach((h,i)=>doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]}));
+  ['Prestations','Prof','Mois','Nb h','Prix U.','Total'].forEach((h,i)=>
+    doc.text(h,cols[i]+cw[i]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[i]-1}));
   y+=rh;
-  // Data rows
+  // Lignes de données
   const lignes=(s.lignes&&s.lignes.length)?s.lignes:[{i:s.i,h:s.h,pr:s.pr,d:s.d}];
-  doc.setTextColor(40);doc.setDrawColor(180);
-  lignes.filter(l=>l.h>0).forEach(l=>{
-    const pr=l.pr||CFG.prixFamille||35;
-    const lt=(l.h*pr).toFixed(2);
+  doc.setTextColor(40);doc.setDrawColor(180);doc.setLineWidth(0.3);
+  lignes.filter(l=>parseFloat(l.h)>0).forEach(l=>{
+    const pr=parseFloat(l.pr||CFG.prixFamille||35);
+    const lt=(parseFloat(l.h)*pr).toFixed(2);
     const moisTxt=l.d||MN[m];
     const prest=(l.prestation||'Cours à domicile')+(l.eleve?' – '+l.eleve:'');
     const vals=[prest,l.i||'',moisTxt,String(l.h),pr+' €',lt+' €'];
     cols.forEach((x,ci)=>{
       doc.rect(x,y,cw[ci],rh);
+      const ty=y+rh/2+1.5;
       if(ci===0){
         doc.setFont('helvetica','normal');doc.setFontSize(7.5);
-        doc.text(String(vals[ci]),x+2,y+rh/2+1.5,{align:'left',maxWidth:cw[ci]-3});
-      } else if(ci===2){// Mois en gras centré
+        doc.text(String(vals[ci]),x+2,ty,{align:'left',maxWidth:cw[ci]-3});
+      } else if(ci===2){
         doc.setFont('helvetica','bold');doc.setFontSize(8);
-        doc.text(String(vals[ci]),x+cw[ci]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[ci]-1});
+        doc.text(String(vals[ci]),x+cw[ci]/2,ty,{align:'center',maxWidth:cw[ci]-1});
+        doc.setFont('helvetica','normal');
+      } else if(ci>=3){
+        // Nb h, Prix U., Total : alignés à droite avec marge
         doc.setFont('helvetica','normal');doc.setFontSize(8);
+        doc.text(String(vals[ci]),x+cw[ci]-2,ty,{align:'right',maxWidth:cw[ci]-3});
       } else {
         doc.setFont('helvetica','normal');doc.setFontSize(8);
-        doc.text(String(vals[ci]),x+cw[ci]/2,y+rh/2+1.5,{align:'center',maxWidth:cw[ci]-1});
+        doc.text(String(vals[ci]),x+cw[ci]/2,ty,{align:'center',maxWidth:cw[ci]-1});
       }
     });
     y+=rh;
   });
-  // Total row
+  // Ligne TOTAL
   doc.setFillColor(239,246,255);doc.rect(18,y,175,rh,'F');
+  doc.setDrawColor(180);doc.setLineWidth(0.3);
   cols.forEach((x,ci)=>doc.rect(x,y,cw[ci],rh));
   doc.setFont('helvetica','bold');doc.setFontSize(8.5);
-  doc.text('TOTAL',cols[4]+cw[4]/2,y+rh/2+1.5,{align:'center'});
-  doc.text(tot+' €',cols[5]+cw[5]/2,y+rh/2+1.5,{align:'center'});
+  const ty=y+rh/2+1.5;
+  // "TOTAL" dans la colonne Prix U. (ci=4), valeur dans Total (ci=5)
+  doc.text('TOTAL',cols[4]+cw[4]-2,ty,{align:'right'});
+  doc.text(tot+' €',cols[5]+cw[5]-2,ty,{align:'right'});
   y+=rh;
   // TVA row
   doc.setFillColor(255,255,255);doc.rect(18,y,175,7,'F');

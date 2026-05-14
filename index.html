@@ -592,7 +592,7 @@ function startPolling(){
         }
       })
       .catch(()=>{});
-  },30000);
+  },10000);
 }
 
 // Helper: build address string from family object
@@ -805,8 +805,14 @@ function showPage(id,btn){
   if(id==='attestations'){
     // Forcer l'année courante dans le sélecteur avant d'appeler rAttestations
     const atlSel=document.getElementById('atl-annee');
-    if(atlSel&&atlSel.options.length>0&&!atlSel.value){
-      atlSel.value=new Date().getFullYear();
+    if(atlSel){
+      // Peupler si vide (cas refresh)
+      if(atlSel.options.length===0){
+        const curA=new Date().getFullYear();
+        for(let a2=2020;a2<=curA+1;a2++){const o=document.createElement('option');o.value=a2;o.textContent=a2;if(a2===curA)o.selected=true;atlSel.appendChild(o);}
+      }
+      // Forcer une valeur valide
+      if(!atlSel.value||parseInt(atlSel.value)<2020){atlSel.value=new Date().getFullYear();}
     }
     rAttestations();
   }
@@ -1251,7 +1257,7 @@ function mkPDF(s,f,m,a,tot){
   doc.setDrawColor(30,64,175);doc.setLineWidth(0.6);doc.line(18,y+3,193,y+3);
   doc.setFont('helvetica','normal');y+=14;
   // TABLEAU en bleu
-  const cols=[18,68,93,113,135,160],cw=[50,25,20,22,25,20];
+  const cols=[18,68,93,113,135,160],cw=[50,25,20,22,25,33];
   const rh=9;
   doc.setFillColor(30,64,175);doc.rect(18,y,175,rh,'F');
   doc.setTextColor(255);doc.setFontSize(8);doc.setFont('helvetica','bold');
@@ -2142,9 +2148,16 @@ function changeSapLogo(event){
 }
 
 function rAttestations(){
-  const a=parseInt(document.getElementById('atl-annee').value)||new Date().getFullYear();
+  const atlSel=document.getElementById('atl-annee');
+  if(!atlSel)return;
+  const a=parseInt(atlSel.value)||new Date().getFullYear();
   const c=document.getElementById('atl-list');
   if(!c)return;
+  // Données pas encore chargées
+  if(!S.f||S.f.length===0){
+    c.innerHTML='<div class="empty"><div class="ei">⏳</div><p>Chargement des données...</p></div>';
+    return;
+  }
   // Clients SAP ayant des paiements dans l'année
   const clients=S.f.map((f,idx)=>({f,idx})).filter(({f,idx})=>{
     // Vérifier si au moins un paiement dans l'année (toutes les familles)

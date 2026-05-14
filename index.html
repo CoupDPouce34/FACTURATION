@@ -156,7 +156,7 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <!-- PAGE FACTURES -->
   <div class="page active" id="pg-factures">
     <div class="mbar">
-      <select id="f-mois" onchange="rFact()">
+      <select id="f-mois" onchange="rFact();saveUIHash&&saveUIHash()">
         <option value="1">Janvier</option><option value="2">Février</option><option value="3">Mars</option>
         <option value="4">Avril</option><option value="5">Mai</option><option value="6">Juin</option>
         <option value="7">Juillet</option><option value="8">Août</option><option value="9">Septembre</option>
@@ -273,21 +273,21 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
   <div class="page" id="pg-reglages">
     <div class="card">
       <div class="ctitle">🏢 Informations de l'association</div>
-      <div class="field"><label class="sl">Nom de la micro-entreprise</label><input type="text" id="cfg-nom"></div>
-      <div class="field"><label class="sl">Adresse (rue)</label><input type="text" id="cfg-adr" placeholder="14 chemin du caire"></div>
-      <div class="field"><label class="sl">Code postal + Ville</label><input type="text" id="cfg-adr2" placeholder="34150 LAGAMAS"></div>
-      <div class="field"><label class="sl">Téléphone</label><input type="text" id="cfg-tel" inputmode="tel" placeholder="06 xx xx xx xx"></div>
-      <div class="field"><label class="sl">Email</label><input type="text" id="cfg-email" inputmode="email"></div>
-      <div class="field"><label class="sl">SIREN</label><input type="text" id="cfg-siren" inputmode="numeric"></div>
+      <div class="field"><label class="sl">Nom de la micro-entreprise</label><input type="text" id="cfg-nom" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Adresse (rue)</label><input type="text" id="cfg-adr" placeholder="14 chemin du caire" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Code postal + Ville</label><input type="text" id="cfg-adr2" placeholder="34150 LAGAMAS" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Téléphone</label><input type="text" id="cfg-tel" inputmode="tel" placeholder="06 xx xx xx xx" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Email</label><input type="text" id="cfg-email" inputmode="email" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">SIREN</label><input type="text" id="cfg-siren" inputmode="numeric" onblur="saveCFG()"></div>
 
-      <div class="field"><label class="sl">IBAN</label><input type="text" id="cfg-iban"></div>
+      <div class="field"><label class="sl">IBAN</label><input type="text" id="cfg-iban" onblur="saveCFG()"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">💶 Tarifs</div>
-      <div class="field"><label class="sl">Tarif famille (€/h)</label><input type="number" id="cfg-prix-famille" min="0" step="0.5" placeholder="35"></div>
-      <div class="field"><label class="sl">Tarif prof (€/h)</label><input type="number" id="cfg-prix-prof" min="0" step="0.5" placeholder="28"></div>
+      <div class="field"><label class="sl">Tarif famille (€/h)</label><input type="number" id="cfg-prix-famille" min="0" step="0.5" placeholder="35" onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Tarif prof (€/h)</label><input type="number" id="cfg-prix-prof" min="0" step="0.5" placeholder="28" onblur="saveCFG()"></div>
       <hr style="margin:14px 0;border-color:var(--bord);">
       <div class="ctitle" style="margin-bottom:10px;">✍️ Représentant légal (pour attestations)</div>
-      <div class="field"><label class="sl">Nom complet du représentant</label><input type="text" id="cfg-rep-nom" placeholder="ex: Mairi OIKONOMOU"></div>
+      <div class="field"><label class="sl">Nom complet du représentant</label><input type="text" id="cfg-rep-nom" placeholder="ex: Mairi OIKONOMOU" onblur="saveCFG()"></div>
       <button class="btn bv bfull bsm" onclick="saveCFG()">💾 Sauvegarder les infos</button>
     </div>
     <div class="card">
@@ -299,8 +299,8 @@ label.sl{font-size:.7rem;font-weight:700;color:var(--gris);text-transform:upperc
     <div class="card">
       <div class="ctitle">🏷️ SAP (Service à la Personne)</div>
       <div style="font-size:.78rem;color:var(--gris);margin-bottom:11px;">Ces infos n'apparaissent que sur les factures et attestations des clients cochés SAP.</div>
-      <div class="field"><label class="sl">Déclaration SAP</label><input type="text" id="cfg-sap" placeholder="ex: Déclarée SAP le ..."></div>
-      <div class="field"><label class="sl">Mention bas de page</label><input type="text" id="cfg-sap2" placeholder="ex: -50% de réduction ou crédit d'impôts"></div>
+      <div class="field"><label class="sl">Déclaration SAP</label><input type="text" id="cfg-sap" placeholder="ex: Déclarée SAP le ..." onblur="saveCFG()"></div>
+      <div class="field"><label class="sl">Mention bas de page</label><input type="text" id="cfg-sap2" placeholder="ex: -50% de réduction ou crédit d'impôts" onblur="saveCFG()"></div>
       <div class="field"><label class="sl">Logo SAP</label>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <img id="sap-logo-preview" src="" style="height:40px;display:none;background:transparent;mix-blend-mode:multiply;">
@@ -716,9 +716,48 @@ function init(){
     }
   });
 
+  // ── Restaurer mois/année depuis URL hash (par utilisateur, sans localStorage) ──
+  function saveUIHash(){
+    try{
+      const m=parseInt(document.getElementById('f-mois')?.value)||new Date().getMonth()+1;
+      const a=parseInt(document.getElementById('f-an')?.value)||new Date().getFullYear();
+      const pm=parseInt(document.getElementById('p-mois')?.value)||m;
+      const pa=parseInt(document.getElementById('p-an')?.value)||a;
+      const prm=parseInt(document.getElementById('pr-mois')?.value)||m;
+      const pra=parseInt(document.getElementById('pr-an')?.value)||a;
+      const sm=parseInt(document.getElementById('s-mois')?.value)||m;
+      const sa=parseInt(document.getElementById('s-an')?.value)||a;
+      history.replaceState(null,'',`#ui=${sm},${sa},${m},${a},${pm},${pa},${prm},${pra}`);
+    }catch(e){}
+  }
+  function restoreUIHash(){
+    try{
+      const h=location.hash.replace('#ui=','');
+      if(!h||!h.includes(','))return false;
+      const [sm,sa,fm,fa,pm,pa,prm,pra]=h.split(',').map(Number);
+      if(sm>0){['s-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=sm;});}
+      if(sa>0){['s-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=sa;});}
+      if(fm>0){['f-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=fm;});}
+      if(fa>0){['f-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=fa;});}
+      if(pm>0){const el=document.getElementById('p-mois');if(el)el.value=pm;}
+      if(pa>0){['p-an','p-an-imp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=pa;});}
+      if(prm>0){const el=document.getElementById('pr-mois');if(el)el.value=prm;}
+      if(pra>0){['pr-an','pr-an-imp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=pra;});}
+      return true;
+    }catch(e){return false;}
+  }
+  window.saveUIHash=saveUIHash;
+
   const m=now.getMonth()+1;
   ['s-mois','f-mois','p-mois','pr-mois'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=m;});
   ['s-an','f-an','p-an','p-an-imp','pr-an'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=curA;});
+  restoreUIHash();
+
+  // Sauvegarder l'état UI à chaque changement de sélecteur
+  ['s-mois','s-an','f-mois','f-an','p-mois','p-an','p-an-imp','pr-mois','pr-an','pr-an-imp'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el)el.addEventListener('change',()=>saveUIHash());
+  });
 
   // ── CHARGEMENT : JSONBin = source de vérité unique ──
   showSync('🔄',false);
@@ -726,9 +765,10 @@ function init(){
   jbGet().then(remote=>{
     applyRemote(remote);
     rFact();
+    rReglages();
     showSync('☁️',true);
     startPolling();
-  }).catch(()=>{showSync('📵',false);rFact();startPolling();});
+  }).catch(()=>{showSync('📵',false);rFact();rReglages();startPolling();});
   updateUndoBtn();
 }
 
@@ -779,6 +819,7 @@ function onMC(){
   const m=gm(),a=ga();
   document.getElementById('f-mois').value=m;
   document.getElementById('f-an').value=a;
+  if(window.saveUIHash)saveUIHash();
   rSaisie();
 }
 
@@ -2011,7 +2052,8 @@ function rReglages(){
   if(sapPrev&&(CFG.sapLogo||SAP_LOGO)){sapPrev.src=CFG.sapLogo||SAP_LOGO;sapPrev.style.display='block';}
   rCodes();
 }
-function saveCFG(){snapshotS();
+
+function saveCFG(){
   CFG.nom=document.getElementById('cfg-nom').value.trim()||CFG_DEF.nom;
   CFG.adr=document.getElementById('cfg-adr').value.trim()||CFG_DEF.adr;
   CFG.tel=document.getElementById('cfg-tel').value.trim();
@@ -2026,8 +2068,9 @@ function saveCFG(){snapshotS();
   const pP=parseFloat(document.getElementById('cfg-prix-prof').value);
   if(!isNaN(pF)&&pF>0)CFG.prixFamille=pF;
   if(!isNaN(pP)&&pP>0)CFG.prixProf=pP;
-  save(); // Sauvegarder dans JSONBin
-  alert('✅ Informations sauvegardées !');
+  // Debounce 800ms : évite de sauvegarder à chaque caractère
+  if(window._cfgSaveTimer)clearTimeout(window._cfgSaveTimer);
+  window._cfgSaveTimer=setTimeout(()=>{snapshotS();save();},800);
 }
 function rCodes(){
   const c=document.getElementById('codes-list');

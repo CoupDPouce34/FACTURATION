@@ -576,9 +576,24 @@ function save(){
   showSync('🔄',false);
   const local={f:S.f||[],s:S.s||{},py:S.py||{},py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},profs:S.profs||[],codes:CODES,cfg:CFG,deleted_nums:S.deleted_nums||[]};
   jbGet().then(remote=>{
-    const merged=(remote&&remote.f&&remote.f.length)?mergeData(local,remote):local;
+    // Le local est TOUJOURS la source de vérité pour f, codes, py_parts, pyp_parts
+    // On ne merge que les saisies et paiements distants qu'on n'a pas encore (multi-utilisateur)
+    let merged;
+    if(remote&&remote.f&&remote.f.length){
+      merged=mergeData(local,remote);
+      // Restaurer les valeurs locales qui ne doivent jamais être écrasées par le remote
+      merged.f=local.f;           // familles : le local prime toujours
+      merged.codes=local.codes;   // profs/codes : le local prime toujours
+      merged.py_parts=local.py_parts;  // paiements familles : le local prime toujours
+      merged.pyp_parts=local.pyp_parts; // paiements profs : le local prime toujours
+      merged.py=local.py;         // statuts paiements : le local prime toujours
+      merged.pyp=local.pyp;       // statuts paiements profs : le local prime toujours
+    } else {
+      merged=local;
+    }
     merged.ts=Date.now();
-    if(merged.f&&merged.f.length){S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;S.deleted_nums=merged.deleted_nums||[];}
+    S.f=merged.f;S.s=merged.s;S.py=merged.py;S.py_parts=merged.py_parts;
+    S.pyp=merged.pyp;S.pyp_parts=merged.pyp_parts;S.deleted_nums=merged.deleted_nums||[];
     _lastRemoteTs=merged.ts;
     return jbPut(merged);
   }).then(r=>showSync(r.ok?'☁️':'⚠️',r.ok)).catch(()=>showSync('📵',false));
@@ -945,9 +960,9 @@ function mkBlocHTML(l, i, total, f){
   html+=eleveHTML+profHTML+prestHTML;
   html+='<div class="field"><label class="sl">Heures</label>';
   html+='<div style="display:flex;align-items:center;gap:0;border:1.5px solid var(--bord);border-radius:10px;overflow:hidden;background:#fff;width:fit-content;">';
-  html+='<button type="button" onclick="(function(){var el=document.getElementById('+JSON.stringify('ms-h-'+i)+');var v=parseFloat(el.value)||0;el.value=Math.max(0,v-0.25).toString();})()" style="background:#f0f4ff;border:none;border-right:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">&#x2212;</button>';
+  html+='<button type="button" onclick="chgH('+i+',-0.25)" style="background:#f0f4ff;border:none;border-right:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">&#x2212;</button>';
   html+='<input type="number" id="ms-h-'+i+'" value="'+hVal+'" min="0" step="0.25" placeholder="0" style="width:64px;border:none;text-align:center;font-size:1.1rem;font-weight:700;padding:0;height:44px;background:#fff;-moz-appearance:textfield;outline:none;">';
-  html+='<button type="button" onclick="(function(){var el=document.getElementById('+JSON.stringify('ms-h-'+i)+');var v=parseFloat(el.value)||0;el.value=(v+0.25).toString();})()" style="background:#f0f4ff;border:none;border-left:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>';
+  html+='<button type="button" onclick="chgH('+i+',0.25)" style="background:#f0f4ff;border:none;border-left:1.5px solid var(--bord);width:44px;height:44px;font-size:1.4rem;font-weight:700;cursor:pointer;color:var(--v);display:flex;align-items:center;justify-content:center;flex-shrink:0;">+</button>';
   html+='</div></div>';
   html+='<div class="field"><label class="sl">Commentaires</label><input type="text" id="ms-d-'+i+'" value="'+dVal+'" placeholder="ex: 4, 11, 18 mars"></div>';
   html+='</div>';
@@ -957,6 +972,8 @@ function renderLignes(lignes,f){
   const c=document.getElementById('ms-lignes');
   c.innerHTML=lignes.map((l,i)=>mkBlocHTML(l,i,lignes.length,f)).join('');
 }
+
+function chgH(idx,delta){var el=document.getElementById('ms-h-'+idx);if(!el)return;var v=parseFloat(el.value)||0;var nv=Math.round((v+delta)*100)/100;el.value=Math.max(0,nv).toString();}
 
 function ajouterEleveSaisie(){ajouterLigne();}
 
@@ -1443,10 +1460,10 @@ function annPayProfPartiel(key,idx){snapshotS();
   if(!confirm('Annuler ce paiement ?'))return;
   if(S.pyp_parts&&S.pyp_parts[key]){
     S.pyp_parts[key].splice(idx,1);
-    if(S.pyp_parts[key].length===0)delete S.pyp_parts[key];
+    if(S.pyp_parts[key].length===0){delete S.pyp_parts[key];delete S.pyp[key];}
   }
   // Also remove from S.pyp if no more parts
-  if(!(S.pyp_parts||{})[key])delete S.py[key];
+  if(!(S.pyp_parts||{})[key])delete S.pyp[key];
   save();rProfs();
 }
 
@@ -1600,6 +1617,7 @@ function valPayProf(){snapshotS();
 function annPayProf(key){snapshotS();
   if(!confirm('Annuler ce paiement ?'))return;
   if(S.pyp)delete S.pyp[key];
+  if(S.pyp_parts)delete S.pyp_parts[key];
   save();rProfs();
 }
 

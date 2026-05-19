@@ -805,10 +805,17 @@ function init(){
 
 function rafraichir(){
   showSync('🔄',false);
-  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{}};
+  const local={f:S.f,s:S.s,py:S.py,py_parts:S.py_parts||{},pyp:S.pyp||{},pyp_parts:S.pyp_parts||{},deleted_nums:S.deleted_nums||[]};
   jbGet().then(remote=>{
     if(remote&&remote.f&&remote.f.length){
       const merged=mergeData(local,remote);
+      // Le local prime toujours sur le remote pour les paiements (comme dans save())
+      merged.f=local.f;
+      merged.py=local.py;
+      merged.py_parts=local.py_parts;
+      merged.pyp=local.pyp;
+      merged.pyp_parts=local.pyp_parts;
+      merged.deleted_nums=local.deleted_nums;
       applyRemote(merged);
       rFact();rSuivi();
       if(document.querySelector('#pg-profs.active'))rProfs();
@@ -867,13 +874,21 @@ function codeI(nom){
 }
 function genN(idx,m,a,seq){
   // Numéro séquentiel par mois: AAAA/MM/001, /002...
+  // On collecte TOUS les séquentiels déjà utilisés ce mois pour garantir l'unicité absolue
+  const prefix=`${a}/${String(m).padStart(2,'0')}/`;
+  const usedSeqs=new Set();
+  // Depuis les saisies du mois
   const key=m+'_'+a;
-  const existing=(S.s[key]||[]).filter(s=>s.fi!==idx&&s.num).map(s=>{
-    const parts=(s.num||'').split('/');
-    return parts.length===3?parseInt(parts[2])||0:0;
+  (S.s[key]||[]).filter(s=>s.num).forEach(s=>{
+    if(s.num.startsWith(prefix)){const n=parseInt(s.num.split('/')[2])||0;if(n>0)usedSeqs.add(n);}
   });
-  const next=existing.length>0?Math.max(...existing)+1:1;
-  return`${a}/${String(m).padStart(2,'0')}/${String(next).padStart(3,'0')}`;
+  // Depuis tous les paiements existants (filet de sécurité anti-collision)
+  [...Object.keys(S.py||{}),...Object.keys(S.py_parts||{})].forEach(num=>{
+    if(num.startsWith(prefix)){const n=parseInt(num.split('/')[2])||0;if(n>0)usedSeqs.add(n);}
+  });
+  let next=1;
+  while(usedSeqs.has(next))next++;
+  return`${prefix}${String(next).padStart(3,'0')}`;
 }
 // ── SAISIE ──
 function rSaisie(){
